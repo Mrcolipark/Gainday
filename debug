@@ -1,0 +1,334 @@
+== DATE:
+
+    Thursday, February 5, 2026 at 21:35:51 Japan Standard Time
+    
+    2026-02-05T12:35:51Z
+
+
+
+== PAUSED REASON:
+
+    userInitiatedBuild
+
+
+
+== PENDING UPDATE REASONS:
+
+    User initiated a build
+    Preview Settings changed
+    User initiated a build
+    Preview Settings changed
+
+
+
+== PREVIEW UPDATE ERROR:
+
+    GroupRecordingError
+    
+    Error encountered during update group #12
+    
+    ==================================
+    
+    |  FailedToLaunchAppError: Failed to launch dana.Gainday
+    |  
+    |  ==================================
+    |  
+    |  |  [Remote] NSError.BSTransactionError.1: 未能完成该操作。Transaction failed. Process failed to launch. (process launch failed)
+    |  |  
+    |  |  BSTransactionError (1):
+    |  |  ==error-description: Process failed to launch.
+    |  |  ==NSLocalizedFailureReason: Transaction failed. Process failed to launch. (process launch failed)
+    |  |  ==transaction: <FBApplicationProcessLaunchTransaction: 0x6000039084e0>
+    |  |  ==precipitating-error: Error Domain=FBProcessExit Code=64 "The process failed to launch." UserInfo={NSLocalizedFailureReason=The process failed to launch., BSErrorCodeDescription=launch-failed, NSUnderlyingError=0x600000c25950 {Error Domain=RBSRequestErrorDomain Code=5 "Launch failed." UserInfo={NSLocalizedFailureReason=Launch failed., NSUnderlyingError=0x600000c267c0 {Error Domain=NSPOSIXErrorDomain Code=163 "Unknown error: 163" UserInfo={NSLocalizedDescription=Launchd job spawn failed}}}}}
+    |  |  ==error-reason: process launch failed
+
+
+
+== PREVIEW UPDATE ERROR:
+
+    GroupRecordingError
+    
+    Error encountered during update group #12
+    
+    ==================================
+    
+    |  FailedToLaunchAppError: Failed to launch dana.Gainday
+    |  
+    |  ==================================
+    |  
+    |  |  [Remote] NSError.BSTransactionError.1: 未能完成该操作。Transaction failed. Process failed to launch. (process launch failed)
+    |  |  
+    |  |  BSTransactionError (1):
+    |  |  ==error-description: Process failed to launch.
+    |  |  ==NSLocalizedFailureReason: Transaction failed. Process failed to launch. (process launch failed)
+    |  |  ==transaction: <FBApplicationProcessLaunchTransaction: 0x6000039084e0>
+    |  |  ==precipitating-error: Error Domain=FBProcessExit Code=64 "The process failed to launch." UserInfo={NSLocalizedFailureReason=The process failed to launch., BSErrorCodeDescription=launch-failed, NSUnderlyingError=0x600000c25950 {Error Domain=RBSRequestErrorDomain Code=5 "Launch failed." UserInfo={NSLocalizedFailureReason=Launch failed., NSUnderlyingError=0x600000c267c0 {Error Domain=NSPOSIXErrorDomain Code=163 "Unknown error: 163" UserInfo={NSLocalizedDescription=Launchd job spawn failed}}}}}
+    |  |  ==error-reason: process launch failed
+
+
+
+== VERSION INFO:
+
+    Tools: 17C52
+    OS:    24G419
+    PID:   18134
+    Model: MacBook Air
+    Arch:  arm64e
+
+
+
+== EXECUTION MODE PROPERTIES:
+
+    Automatically Refresh Previews: true
+    JIT Mode User Enabled: true
+    Falling back to Dynamic Replacement: false
+
+
+
+== ENVIRONMENT:
+
+    openFiles = [
+        /Users/yanmengru/Desktop/Stock/Gainday/Gainday/ContentView.swift
+    ]
+    wantsNewBuildSystem = true
+    newBuildSystemAvailable = true
+    activeScheme = Gainday
+    activeRunDestination = My Mac variant macos arm64
+    workspaceArena = [x]
+    buildArena = [x]
+    buildableEntries = [
+        Gainday.app
+    ]
+    runMode = JIT Executor
+
+
+
+== SELECTED RUN DESTINATION:
+
+    macOS 26.2 | macos | arm64 | MacBook Air | no proxy
+
+
+
+== SESSION GROUP 12 (START):
+
+    workspace identifier: workspace:48DC0F1C-FCED-44CB-A7EA-E4DA172015CE
+    previewPreflights [
+           Preview Preflight | Registry-ContentView.swift#1[preview]: from Editor(1971) for device<62DCE1F3-0E38-4F9D-A080-F04ACC4B02E3
+    ]
+    externalRegistryPreflights [
+    ]
+    providers [
+           Preview Provider | Registry-ContentView.swift#1[preview] at iPhone 17 Pro [Editor(1971)]
+    ]
+    translation units [
+           /Users/yanmengru/Desktop/Stock/Gainday/Gainday/ContentView.swift
+    ]
+    attributes: [
+        Editor(1971):     []
+    ]
+    Agent Launch Environment {
+        Launch Arguments [
+        ]
+        Environment Variables {
+            CFLOG_FORCE_DISABLE_STDERR: 1
+            DYLD_FRAMEWORK_PATH: /Users/yanmengru/Library/Developer/Xcode/DerivedData/Gainday-gspwnykwkuaiccegttojeybdvfqg/Build/Products/Debug-iphonesimulator
+            DYLD_INSERT_LIBRARIES: /Library/Developer/CoreSimulator/Volumes/iOS_23C54/Library/Developer/CoreSimulator/Profiles/Runtimes/iOS 26.2.simruntime/Contents/Resources/RuntimeRoot/usr/lib/libLogRedirect.dylib
+            DYLD_LIBRARY_PATH: /Users/yanmengru/Library/Developer/Xcode/DerivedData/Gainday-gspwnykwkuaiccegttojeybdvfqg/Build/Products/Debug-iphonesimulator
+            IDE_DISABLED_OS_ACTIVITY_DT_MODE: 1
+            LOGGER_DEPTH: 6
+            OS_ACTIVITY_TOOLS_OVERSIZE: YES
+            OS_ACTIVITY_TOOLS_PRIVACY: YES
+            OS_LOG_DT_HOOK_MODE: 0x07
+            OS_LOG_DT_HOOK_PREFIX: OSLOG-C224B34A-2F1B-4F15-B769-2E2ABCB41B49
+            OS_LOG_TRANSLATE_PRINT_MODE: 0x80
+            PACKAGE_RESOURCE_BUNDLE_PATH: /Users/yanmengru/Library/Developer/Xcode/DerivedData/Gainday-gspwnykwkuaiccegttojeybdvfqg/Build/Products/Debug-iphonesimulator
+            PLAYGROUND_LOGGER_FILTER: {"generateQuickLook":true,"excludeImageResults":false,"createLogPackets":true,"captureSourceLineEvents":false,"generateSummaries":true,"excludeViewResults":false,"renderSwiftUIViews":false,"captureScopeEvents":false,"encodeLogPackets":true}
+            SQLITE_ENABLE_THREAD_ASSERTIONS: 1
+            TERM: dumb
+            XCODE_RUNNING_FOR_PLAYGROUNDS: 1
+            __XCODE_BUILT_PRODUCTS_DIR_PATHS: /Users/yanmengru/Library/Developer/Xcode/DerivedData/Gainday-gspwnykwkuaiccegttojeybdvfqg/Build/Products/Debug-iphonesimulator
+            __XPC_DYLD_FRAMEWORK_PATH: /Users/yanmengru/Library/Developer/Xcode/DerivedData/Gainday-gspwnykwkuaiccegttojeybdvfqg/Build/Products/Debug-iphonesimulator
+            __XPC_DYLD_LIBRARY_PATH: /Users/yanmengru/Library/Developer/Xcode/DerivedData/Gainday-gspwnykwkuaiccegttojeybdvfqg/Build/Products/Debug-iphonesimulator
+        }
+    }
+
+
+
+== SESSION GROUP 11 (START):
+
+    workspace identifier: workspace:48DC0F1C-FCED-44CB-A7EA-E4DA172015CE
+    previewPreflights [
+           Preview Preflight | Registry-ContentView.swift#1[preview]: from Editor(1971) for device<62DCE1F3-0E38-4F9D-A080-F04ACC4B02E3
+    ]
+    externalRegistryPreflights [
+    ]
+    providers [
+           Preview Provider | Registry-ContentView.swift#1[preview] at iPhone 17 Pro [Editor(1971)]
+    ]
+    translation units [
+           /Users/yanmengru/Desktop/Stock/Gainday/Gainday/ContentView.swift
+    ]
+    attributes: [
+        Editor(1971):     []
+    ]
+    Agent Launch Environment {
+        Launch Arguments [
+        ]
+        Environment Variables {
+            CFLOG_FORCE_DISABLE_STDERR: 1
+            DYLD_FRAMEWORK_PATH: /Users/yanmengru/Library/Developer/Xcode/DerivedData/Gainday-gspwnykwkuaiccegttojeybdvfqg/Build/Products/Debug-iphonesimulator
+            DYLD_INSERT_LIBRARIES: /Library/Developer/CoreSimulator/Volumes/iOS_23C54/Library/Developer/CoreSimulator/Profiles/Runtimes/iOS 26.2.simruntime/Contents/Resources/RuntimeRoot/usr/lib/libLogRedirect.dylib
+            DYLD_LIBRARY_PATH: /Users/yanmengru/Library/Developer/Xcode/DerivedData/Gainday-gspwnykwkuaiccegttojeybdvfqg/Build/Products/Debug-iphonesimulator
+            IDE_DISABLED_OS_ACTIVITY_DT_MODE: 1
+            LOGGER_DEPTH: 6
+            OS_ACTIVITY_TOOLS_OVERSIZE: YES
+            OS_ACTIVITY_TOOLS_PRIVACY: YES
+            OS_LOG_DT_HOOK_MODE: 0x07
+            OS_LOG_DT_HOOK_PREFIX: OSLOG-C224B34A-2F1B-4F15-B769-2E2ABCB41B49
+            OS_LOG_TRANSLATE_PRINT_MODE: 0x80
+            PACKAGE_RESOURCE_BUNDLE_PATH: /Users/yanmengru/Library/Developer/Xcode/DerivedData/Gainday-gspwnykwkuaiccegttojeybdvfqg/Build/Products/Debug-iphonesimulator
+            PLAYGROUND_LOGGER_FILTER: {"generateQuickLook":true,"excludeImageResults":false,"createLogPackets":true,"captureSourceLineEvents":false,"generateSummaries":true,"excludeViewResults":false,"renderSwiftUIViews":false,"captureScopeEvents":false,"encodeLogPackets":true}
+            SQLITE_ENABLE_THREAD_ASSERTIONS: 1
+            TERM: dumb
+            XCODE_RUNNING_FOR_PLAYGROUNDS: 1
+            __XCODE_BUILT_PRODUCTS_DIR_PATHS: /Users/yanmengru/Library/Developer/Xcode/DerivedData/Gainday-gspwnykwkuaiccegttojeybdvfqg/Build/Products/Debug-iphonesimulator
+            __XPC_DYLD_FRAMEWORK_PATH: /Users/yanmengru/Library/Developer/Xcode/DerivedData/Gainday-gspwnykwkuaiccegttojeybdvfqg/Build/Products/Debug-iphonesimulator
+            __XPC_DYLD_LIBRARY_PATH: /Users/yanmengru/Library/Developer/Xcode/DerivedData/Gainday-gspwnykwkuaiccegttojeybdvfqg/Build/Products/Debug-iphonesimulator
+        }
+    }
+
+
+
+== SESSION GROUP 10 (START):
+
+    workspace identifier: workspace:48DC0F1C-FCED-44CB-A7EA-E4DA172015CE
+    previewPreflights [
+           Preview Preflight | Registry-ContentView.swift#1[preview]: from Editor(1971) for device<62DCE1F3-0E38-4F9D-A080-F04ACC4B02E3
+    ]
+    externalRegistryPreflights [
+    ]
+    providers [
+           Preview Provider | Registry-ContentView.swift#1[preview] at iPhone 17 Pro [Editor(1971)]
+    ]
+    translation units [
+           /Users/yanmengru/Desktop/Stock/Gainday/Gainday/ContentView.swift
+    ]
+    attributes: [
+        Editor(1971):     []
+    ]
+    build graph {
+        Gainday.app (#3)
+           sourceFile(file:///Users/yanmengru/Desktop/Stock/Gainday/Gainday/ContentView.swift -> ContentView.swift) (#1)
+           ContentView.swift (#2)
+    }
+    update plan {
+        iOS [arm64 iphonesimulator26.2 iphonesimulator] (iPhone 17 Pro, 62DCE1F3-0E38-4F9D-A080-F04ACC4B02E3-iphonesimulator26.2-arm64-iphonesimulator), [], thinning disabled, thunking enabled) {
+            Destination: iPhone 17 Pro 62DCE1F3-0E38-4F9D-A080-F04ACC4B02E3 | iPhone 17 Pro [
+                Gainday app - Previews {
+                    execution point packs [
+                        (ContentView.swift, Previews, iPhone 17 Pro) (in Gainday)
+                    ]
+                    translation units [
+                        ContentView.swift (in Gainday.app)
+                    ]
+                    modules [
+                        Gainday.app
+                    ]
+                    jit link description [
+                        Gainday.app
+                    ]
+                }
+            ]
+        }
+    }
+
+
+
+== SESSION GROUP 9 (START):
+
+    workspace identifier: workspace:48DC0F1C-FCED-44CB-A7EA-E4DA172015CE
+    previewPreflights [
+           Preview Preflight | Registry-ContentView.swift#1[preview]: from Editor(1971) for device<62DCE1F3-0E38-4F9D-A080-F04ACC4B02E3
+    ]
+    externalRegistryPreflights [
+    ]
+    providers [
+           Preview Provider | Registry-ContentView.swift#1[preview] at iPhone 17 Pro [Editor(1971)]
+    ]
+    translation units [
+           /Users/yanmengru/Desktop/Stock/Gainday/Gainday/ContentView.swift
+    ]
+    attributes: [
+        Editor(1971):     []
+    ]
+
+
+
+== BUILD PRODUCTS CACHE:
+
+    BuildCache {
+    }
+
+
+
+== POWER STATE LOGS:
+
+    2026/02/05, 21:26 Received power source state: Battery Powered (lowPowerMode: false, status: unplugged, level: 100%)
+    2026/02/05, 21:26 No device power state user override user default value.
+    2026/02/05, 21:26 Received power source state: Battery Powered (lowPowerMode: false, status: unplugged, level: 99%)
+    2026/02/05, 21:28 Received power source state: Battery Powered (lowPowerMode: false, status: unplugged, level: 98%)
+    2026/02/05, 21:33 Received power source state: Battery Powered (lowPowerMode: false, status: unplugged, level: 97%)Current power state: Full Power
+
+
+
+== DISPLAYABLE CONTENT STATE:
+
+    updateIdentifier: 2566
+    buildingState: Paused: User initiated build
+    isUpdateInProgress: false
+    providers [
+        Registry[Registry-ContentView.swift#1[preview] (line 36)] {
+            status: Failed: GroupRecordingError
+            
+            Error encountered during update group #12
+            
+            ==================================
+            
+            |  FailedToLaunchAppError: Failed to launch dana.Gainday
+            |  
+            |  ==================================
+            |  
+            |  |  [Remote] NSError.BSTransactionError.1: 未能完成该操作。Transaction failed. Process failed to launch. (process launch failed)
+            |  |  
+            |  |  BSTransactionError (1):
+            |  |  ==error-description: Process failed to launch.
+            |  |  ==NSLocalizedFailureReason: Transaction failed. Process failed to launch. (process launch failed)
+            |  |  ==transaction: <FBApplicationProcessLaunchTransaction: 0x6000039084e0>
+            |  |  ==precipitating-error: Error Domain=FBProcessExit Code=64 "The process failed to launch." UserInfo={NSLocalizedFailureReason=The process failed to launch., BSErrorCodeDescription=launch-failed, NSUnderlyingError=0x600000c25950 {Error Domain=RBSRequestErrorDomain Code=5 "Launch failed." UserInfo={NSLocalizedFailureReason=Launch failed., NSUnderlyingError=0x600000c267c0 {Error Domain=NSPOSIXErrorDomain Code=163 "Unknown error: 163" UserInfo={NSLocalizedDescription=Launchd job spawn failed}}}}}
+            |  |  ==error-reason: process launch failed
+        }
+    ]
+    registries [
+        Registry-ContentView.swift#1[preview] {
+            status: Failed: GroupRecordingError
+            
+            Error encountered during update group #12
+            
+            ==================================
+            
+            |  FailedToLaunchAppError: Failed to launch dana.Gainday
+            |  
+            |  ==================================
+            |  
+            |  |  [Remote] NSError.BSTransactionError.1: 未能完成该操作。Transaction failed. Process failed to launch. (process launch failed)
+            |  |  
+            |  |  BSTransactionError (1):
+            |  |  ==error-description: Process failed to launch.
+            |  |  ==NSLocalizedFailureReason: Transaction failed. Process failed to launch. (process launch failed)
+            |  |  ==transaction: <FBApplicationProcessLaunchTransaction: 0x6000039084e0>
+            |  |  ==precipitating-error: Error Domain=FBProcessExit Code=64 "The process failed to launch." UserInfo={NSLocalizedFailureReason=The process failed to launch., BSErrorCodeDescription=launch-failed, NSUnderlyingError=0x600000c25950 {Error Domain=RBSRequestErrorDomain Code=5 "Launch failed." UserInfo={NSLocalizedFailureReason=Launch failed., NSUnderlyingError=0x600000c267c0 {Error Domain=NSPOSIXErrorDomain Code=163 "Unknown error: 163" UserInfo={NSLocalizedDescription=Launchd job spawn failed}}}}}
+            |  |  ==error-reason: process launch failed
+        }
+    ]
+
+

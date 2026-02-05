@@ -29,6 +29,25 @@
 		6D0F67D52F336C4900D5CE4A /* GaindayUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = GaindayUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		6D0F68852F348EF900D5CE4A /* Exceptions for "GaindayTests" folder in "GaindayTests" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				GaindayUITests/GaindayUITests.swift,
+				GaindayUITests/GaindayUITestsLaunchTests.swift,
+			);
+			target = 6D0F67CA2F336C4900D5CE4A /* GaindayTests */;
+		};
+		6D0F68862F348EF900D5CE4A /* Exceptions for "GaindayTests" folder in "GaindayUITests" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				GaindayUITests/GaindayUITests.swift,
+				GaindayUITests/GaindayUITestsLaunchTests.swift,
+			);
+			target = 6D0F67D42F336C4900D5CE4A /* GaindayUITests */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		6D0F67BF2F336C4700D5CE4A /* Gainday */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
@@ -37,12 +56,11 @@
 		};
 		6D0F67CE2F336C4900D5CE4A /* GaindayTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				6D0F68852F348EF900D5CE4A /* Exceptions for "GaindayTests" folder in "GaindayTests" target */,
+				6D0F68862F348EF900D5CE4A /* Exceptions for "GaindayTests" folder in "GaindayUITests" target */,
+			);
 			path = GaindayTests;
-			sourceTree = "<group>";
-		};
-		6D0F67D82F336C4900D5CE4A /* GaindayUITests */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = GaindayUITests;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -77,7 +95,6 @@
 			children = (
 				6D0F67BF2F336C4700D5CE4A /* Gainday */,
 				6D0F67CE2F336C4900D5CE4A /* GaindayTests */,
-				6D0F67D82F336C4900D5CE4A /* GaindayUITests */,
 				6D0F67BE2F336C4700D5CE4A /* Products */,
 			);
 			sourceTree = "<group>";
@@ -152,9 +169,6 @@
 			);
 			dependencies = (
 				6D0F67D72F336C4900D5CE4A /* PBXTargetDependency */,
-			);
-			fileSystemSynchronizedGroups = (
-				6D0F67D82F336C4900D5CE4A /* GaindayUITests */,
 			);
 			name = GaindayUITests;
 			packageProductDependencies = (
