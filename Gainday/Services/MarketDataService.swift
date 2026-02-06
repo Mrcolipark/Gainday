@@ -644,9 +644,10 @@ actor MarketDataService {
         return try await fetchQuotes(symbols: symbols)
     }
 
-    // MARK: - Market Movers (S&P 500 components sample)
+    // MARK: - Market Movers
 
-    static let marketMoverSymbols = [
+    // 美股 - S&P 500 成分股样本
+    static let marketMoverSymbols_US = [
         "AAPL", "MSFT", "GOOGL", "AMZN", "NVDA",
         "META", "TSLA", "BRK-B", "JPM", "V",
         "UNH", "XOM", "MA", "HD", "PG",
@@ -655,8 +656,48 @@ actor MarketDataService {
         "BAC", "MCD", "CSCO", "TMO", "ABT"
     ]
 
-    func fetchMarketMovers() async throws -> [QuoteData] {
-        try await fetchQuotes(symbols: MarketDataService.marketMoverSymbols)
+    // A股 - 沪深300成分股样本
+    static let marketMoverSymbols_CN = [
+        "600519.SS", "601318.SS", "600036.SS", "000858.SZ", "600276.SS",
+        "601166.SS", "000333.SZ", "600900.SS", "601288.SS", "600030.SS",
+        "000001.SZ", "600000.SS", "601398.SS", "600887.SS", "000568.SZ",
+        "601888.SS", "600309.SS", "002415.SZ", "600690.SS", "601012.SS",
+        "002304.SZ", "600585.SS", "000725.SZ", "601899.SS", "600438.SS"
+    ]
+
+    // 港股 - 恒生指数成分股样本
+    static let marketMoverSymbols_HK = [
+        "0700.HK", "9988.HK", "0941.HK", "1299.HK", "2318.HK",
+        "0005.HK", "3690.HK", "1810.HK", "0388.HK", "0883.HK",
+        "0016.HK", "0001.HK", "0027.HK", "2628.HK", "1398.HK",
+        "0011.HK", "0939.HK", "0066.HK", "0688.HK", "1928.HK",
+        "0762.HK", "0003.HK", "0012.HK", "2007.HK", "0857.HK"
+    ]
+
+    // 日股 - 日经225成分股样本
+    static let marketMoverSymbols_JP = [
+        "7203.T", "6758.T", "9984.T", "8306.T", "6861.T",
+        "7267.T", "9432.T", "6501.T", "7974.T", "4063.T",
+        "8035.T", "6902.T", "7751.T", "4502.T", "6098.T",
+        "8766.T", "7741.T", "9433.T", "6367.T", "4503.T",
+        "8001.T", "3382.T", "6954.T", "4661.T", "6981.T"
+    ]
+
+    func fetchMarketMovers(market: Any? = nil) async throws -> [QuoteData] {
+        var symbols = MarketDataService.marketMoverSymbols_US
+
+        // 根据市场类型选择股票列表
+        if let marketStr = market as? String {
+            switch marketStr {
+            case "美股": symbols = MarketDataService.marketMoverSymbols_US
+            case "A股": symbols = MarketDataService.marketMoverSymbols_CN
+            case "港股": symbols = MarketDataService.marketMoverSymbols_HK
+            case "日股": symbols = MarketDataService.marketMoverSymbols_JP
+            default: break
+            }
+        }
+
+        return try await fetchQuotes(symbols: symbols)
     }
 
     // MARK: - Symbol Search

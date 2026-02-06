@@ -75,6 +75,17 @@ struct MarketsView: View {
         }
     }
 
+    private func loadMovers() async {
+        do {
+            let result = try await MarketDataService.shared.fetchMarketMovers(market: selectedMarket.rawValue)
+            if !result.isEmpty {
+                await MainActor.run { marketMovers = result }
+            }
+        } catch {
+            print("[Markets] Failed to load movers: \(error)")
+        }
+    }
+
     // MARK: - Brand Header
 
     private var brandHeader: some View {
@@ -146,7 +157,10 @@ struct MarketsView: View {
                             withAnimation(.easeInOut(duration: 0.2)) {
                                 selectedMarket = region
                             }
-                            Task { await loadSectors() }
+                            Task {
+                                await loadSectors()
+                                await loadMovers()
+                            }
                         } label: {
                             Text(region.rawValue)
                                 .font(.system(size: 11, weight: selectedMarket == region ? .semibold : .medium))
@@ -211,10 +225,43 @@ struct MarketsView: View {
                 Text("市场热门")
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(AppColors.textPrimary)
+
+                Spacer()
+
+                // 市场选择器（与板块热力图共用 selectedMarket）
+                HStack(spacing: 0) {
+                    ForEach(MarketRegion.allCases, id: \.self) { region in
+                        Button {
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                selectedMarket = region
+                            }
+                            Task {
+                                await loadSectors()
+                                await loadMovers()
+                            }
+                        } label: {
+                            Text(region.rawValue)
+                                .font(.system(size: 11, weight: selectedMarket == region ? .semibold : .medium))
+                                .foregroundStyle(selectedMarket == region ? .white : AppColors.textSecondary)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 5)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                        .fill(selectedMarket == region ? accentOrange : Color.clear)
+                                )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(2)
+                .background(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(AppColors.elevatedSurface)
+                )
             }
             .padding(.horizontal)
 
-            // 自定义分段选择器
+            // 涨跌幅/成交量 分段选择器
             HStack(spacing: 0) {
                 ForEach(0..<3, id: \.self) { index in
                     let titles = ["涨幅榜", "跌幅榜", "成交量"]
@@ -347,7 +394,7 @@ struct MarketsView: View {
             // 加载市场热门股票
             group.addTask {
                 do {
-                    let result = try await MarketDataService.shared.fetchMarketMovers()
+                    let result = try await MarketDataService.shared.fetchMarketMovers(market: self.selectedMarket.rawValue)
                     if !result.isEmpty {
                         await MainActor.run { self.marketMovers = result }
                     }
