@@ -13,19 +13,19 @@ struct ContentView: View {
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            Tab("Home", systemImage: "house.fill", value: 0) {
+            Tab("首页", systemImage: "house.fill", value: 0) {
                 HomeView()
             }
 
-            Tab("Calendar", systemImage: "calendar", value: 1) {
+            Tab("日历", systemImage: "calendar", value: 1) {
                 PnLCalendarView()
             }
 
-            Tab("Markets", systemImage: "chart.line.uptrend.xyaxis", value: 2) {
+            Tab("市场", systemImage: "chart.line.uptrend.xyaxis", value: 2) {
                 MarketsView()
             }
 
-            Tab("News", systemImage: "newspaper.fill", value: 3) {
+            Tab("资讯", systemImage: "newspaper.fill", value: 3) {
                 NewsView()
             }
         }
