@@ -11,6 +11,7 @@ import SwiftData
 @main
 struct GaindayApp: App {
     @State private var appearanceManager = AppearanceManager.shared
+    @State private var languageManager = LanguageManager.shared
 
     init() {
         configureAppearance()
@@ -41,6 +42,7 @@ struct GaindayApp: App {
         WindowGroup {
             ContentView()
                 .preferredColorScheme(appearanceManager.colorScheme)
+                .environment(\.locale, languageManager.locale ?? .current)
                 .withErrorPresenter()
                 .onAppear {
                     appearanceManager.applyAppearance()

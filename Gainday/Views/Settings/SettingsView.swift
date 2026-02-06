@@ -17,6 +17,8 @@ struct SettingsView: View {
 
     // 使用 AppearanceManager 管理主题
     @State private var appearanceManager = AppearanceManager.shared
+    // 使用 LanguageManager 管理语言
+    @State private var languageManager = LanguageManager.shared
 
     @State private var showAddAccount = false
     @State private var portfolioToDelete: Portfolio?
@@ -304,6 +306,7 @@ struct SettingsView: View {
             sectionHeader("外观", icon: "moon.circle.fill")
 
             VStack(spacing: 0) {
+                // 主题
                 HStack(spacing: 12) {
                     settingsIcon("circle.lefthalf.filled")
 
@@ -320,6 +323,35 @@ struct SettingsView: View {
                         Text("跟随系统").tag("system")
                         Text("浅色").tag("light")
                         Text("深色").tag("dark")
+                    }
+                    .labelsHidden()
+                    .tint(AppColors.textSecondary)
+                }
+                .padding(16)
+
+                Divider()
+                    .background(AppColors.dividerColor)
+                    .padding(.leading, 60)
+
+                // 语言
+                HStack(spacing: 12) {
+                    settingsIcon("globe")
+
+                    Text("语言")
+                        .font(.system(size: 15))
+                        .foregroundStyle(AppColors.textPrimary)
+
+                    Spacer()
+
+                    Picker("", selection: Binding(
+                        get: { languageManager.language },
+                        set: { languageManager.language = $0 }
+                    )) {
+                        Text("跟随系统").tag("system")
+                        Text("简体中文").tag("zh-Hans")
+                        Text("繁體中文").tag("zh-Hant")
+                        Text("English").tag("en")
+                        Text("日本語").tag("ja")
                     }
                     .labelsHidden()
                     .tint(AppColors.textSecondary)

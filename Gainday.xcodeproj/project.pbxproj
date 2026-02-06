@@ -201,11 +201,14 @@
 				};
 			};
 			buildConfigurationList = 6D0F67B82F336C4700D5CE4A /* Build configuration list for PBXProject "Gainday" */;
-			developmentRegion = en;
+			developmentRegion = "zh-Hans";
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				en,
 				Base,
+				"zh-Hans",
+				ja,
+				"zh-HK",
 			);
 			mainGroup = 6D0F67B42F336C4700D5CE4A;
 			minimizedProjectReferenceProxies = 1;
