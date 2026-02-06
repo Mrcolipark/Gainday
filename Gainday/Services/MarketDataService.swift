@@ -827,6 +827,281 @@ actor MarketDataService {
         }
     }
 
+    // MARK: - A股真实涨跌幅排行榜 (东方财富 API)
+
+    struct EastMoneyResponse: Codable {
+        let rc: Int
+        let rt: Int
+        let data: EastMoneyData?
+    }
+
+    struct EastMoneyData: Codable {
+        let total: Int
+        let diff: [EastMoneyStock]
+    }
+
+    struct EastMoneyStock: Codable {
+        let f2: Double?   // 最新价
+        let f3: Double?   // 涨跌幅 (%)
+        let f4: Double?   // 涨跌额
+        let f5: Double?   // 成交量 (手)
+        let f6: Double?   // 成交额
+        let f7: Double?   // 振幅
+        let f12: String   // 代码
+        let f14: String   // 名称
+        let f15: Double?  // 最高
+        let f16: Double?  // 最低
+        let f17: Double?  // 开盘
+        let f18: Double?  // 昨收
+    }
+
+    /// 获取A股真实涨跌幅排行榜 (东方财富 API)
+    func fetchCNMarketMovers(type: String = "gainers") async throws -> [QuoteData] {
+        // 排序字段: f3=涨跌幅, f5=成交量, f6=成交额
+        // po: 1=降序, 0=升序
+        let sortField: String
+        let sortOrder: String
+
+        switch type {
+        case "gainers":
+            sortField = "f3"  // 涨跌幅
+            sortOrder = "1"   // 降序
+        case "losers":
+            sortField = "f3"  // 涨跌幅
+            sortOrder = "0"   // 升序
+        case "actives":
+            sortField = "f6"  // 成交额
+            sortOrder = "1"   // 降序
+        default:
+            sortField = "f3"
+            sortOrder = "1"
+        }
+
+        // fs: 市场筛选 - m:0+t:6,m:0+t:80 = 深市A股, m:1+t:2,m:1+t:23 = 沪市A股
+        let urlString = "https://push2.eastmoney.com/api/qt/clist/get?pn=1&pz=30&po=\(sortOrder)&np=1&fltt=2&invt=2&fid=\(sortField)&fs=m:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23&fields=f2,f3,f4,f5,f6,f7,f12,f14,f15,f16,f17,f18"
+
+        guard let url = URL(string: urlString) else {
+            throw MarketDataError.invalidURL
+        }
+
+        var request = URLRequest(url: url)
+        request.setValue("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36", forHTTPHeaderField: "User-Agent")
+
+        let (data, response) = try await session.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            throw MarketDataError.httpError
+        }
+
+        let emResponse = try JSONDecoder().decode(EastMoneyResponse.self, from: data)
+        guard let emData = emResponse.data else {
+            throw MarketDataError.noData
+        }
+
+        // 转换为 QuoteData
+        return emData.diff.compactMap { stock in
+            // 生成 Yahoo Finance 兼容的 symbol
+            let code = stock.f12
+            let yahooSymbol: String
+            if code.hasPrefix("6") {
+                yahooSymbol = "\(code).SS"  // 上交所
+            } else {
+                yahooSymbol = "\(code).SZ"  // 深交所
+            }
+
+            guard let price = stock.f2, price > 0 else { return nil }
+
+            return QuoteData(
+                symbol: yahooSymbol,
+                shortName: stock.f14,
+                longName: stock.f14,
+                regularMarketPrice: price,
+                regularMarketChange: stock.f4,
+                regularMarketChangePercent: stock.f3,
+                regularMarketPreviousClose: stock.f18,
+                currency: "CNY",
+                marketState: nil,
+                preMarketPrice: nil,
+                preMarketChange: nil,
+                preMarketChangePercent: nil,
+                postMarketPrice: nil,
+                postMarketChange: nil,
+                postMarketChangePercent: nil,
+                regularMarketOpen: stock.f17,
+                regularMarketDayHigh: stock.f15,
+                regularMarketDayLow: stock.f16,
+                regularMarketVolume: stock.f5.map { $0 * 100 },  // 手 -> 股
+                marketCap: nil,
+                trailingPE: nil,
+                fiftyTwoWeekHigh: nil,
+                fiftyTwoWeekLow: nil,
+                dividendYield: nil,
+                epsTrailingTwelveMonths: nil
+            )
+        }
+    }
+
+    // MARK: - 日股真实涨跌幅排行榜 (TradingView Scanner API)
+
+    struct TradingViewScanResponse: Codable {
+        let totalCount: Int
+        let data: [TradingViewScanResult]
+    }
+
+    struct TradingViewScanResult: Codable {
+        let s: String      // symbol (format: "TSE:7203")
+        let d: [ScanValue] // data: [name/code, close, change%, change_abs, volume]
+    }
+
+    // TradingView returns mixed types in array, need custom decoder
+    enum ScanValue: Codable {
+        case string(String)
+        case double(Double)
+        case int(Int)
+        case null
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.singleValueContainer()
+            if container.decodeNil() {
+                self = .null
+            } else if let str = try? container.decode(String.self) {
+                self = .string(str)
+            } else if let dbl = try? container.decode(Double.self) {
+                self = .double(dbl)
+            } else if let int = try? container.decode(Int.self) {
+                self = .int(int)
+            } else {
+                self = .null
+            }
+        }
+
+        func encode(to encoder: Encoder) throws {
+            var container = encoder.singleValueContainer()
+            switch self {
+            case .string(let s): try container.encode(s)
+            case .double(let d): try container.encode(d)
+            case .int(let i): try container.encode(i)
+            case .null: try container.encodeNil()
+            }
+        }
+
+        var stringValue: String? {
+            if case .string(let s) = self { return s }
+            return nil
+        }
+
+        var doubleValue: Double? {
+            switch self {
+            case .double(let d): return d
+            case .int(let i): return Double(i)
+            default: return nil
+            }
+        }
+    }
+
+    /// 获取日股真实涨跌幅排行榜 (TradingView Scanner API)
+    func fetchJPMarketMovers(type: String = "gainers") async throws -> [QuoteData] {
+        let sortBy: String
+        let sortOrder: String
+
+        switch type {
+        case "gainers":
+            sortBy = "change"
+            sortOrder = "desc"
+        case "losers":
+            sortBy = "change"
+            sortOrder = "asc"
+        case "actives":
+            sortBy = "volume"
+            sortOrder = "desc"
+        default:
+            sortBy = "change"
+            sortOrder = "desc"
+        }
+
+        let urlString = "https://scanner.tradingview.com/japan/scan"
+        guard let url = URL(string: urlString) else {
+            throw MarketDataError.invalidURL
+        }
+
+        // 请求 description 字段获取公司名称
+        let requestBody: [String: Any] = [
+            "filter": [
+                ["left": "change", "operation": "greater", "right": -100]
+            ],
+            "options": ["lang": "en"],
+            "markets": ["japan"],
+            "symbols": [
+                "query": ["types": []],
+                "tickers": []
+            ],
+            "columns": ["description", "close", "change", "change_abs", "volume"],
+            "sort": [
+                "sortBy": sortBy,
+                "sortOrder": sortOrder
+            ],
+            "range": [0, 30]
+        ]
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36", forHTTPHeaderField: "User-Agent")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
+
+        let (data, response) = try await session.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            throw MarketDataError.httpError
+        }
+
+        let tvResponse = try JSONDecoder().decode(TradingViewScanResponse.self, from: data)
+
+        // Convert to QuoteData
+        // Filter only TSE (Tokyo Stock Exchange) stocks
+        return tvResponse.data.compactMap { result in
+            guard result.s.hasPrefix("TSE:") else { return nil }
+            let code = String(result.s.dropFirst(4))  // Remove "TSE:" prefix
+            let yahooSymbol = "\(code).T"
+
+            guard result.d.count >= 5 else { return nil }
+
+            let description = result.d[0].stringValue ?? code
+            let close = result.d[1].doubleValue ?? 0
+            let changePercent = result.d[2].doubleValue ?? 0
+            let changeAbs = result.d[3].doubleValue ?? 0
+            let volume = result.d[4].doubleValue ?? 0
+
+            guard close > 0 else { return nil }
+
+            return QuoteData(
+                symbol: yahooSymbol,
+                shortName: description,
+                longName: description,
+                regularMarketPrice: close,
+                regularMarketChange: changeAbs,
+                regularMarketChangePercent: changePercent,
+                regularMarketPreviousClose: close - changeAbs,
+                currency: "JPY",
+                marketState: nil,
+                preMarketPrice: nil,
+                preMarketChange: nil,
+                preMarketChangePercent: nil,
+                postMarketPrice: nil,
+                postMarketChange: nil,
+                postMarketChangePercent: nil,
+                regularMarketOpen: nil,
+                regularMarketDayHigh: nil,
+                regularMarketDayLow: nil,
+                regularMarketVolume: volume,
+                marketCap: nil,
+                trailingPE: nil,
+                fiftyTwoWeekHigh: nil,
+                fiftyTwoWeekLow: nil,
+                dividendYield: nil,
+                epsTrailingTwelveMonths: nil
+            )
+        }
+    }
+
     /// 获取市场热门股票
     /// - Parameters:
     ///   - market: 市场名称 ("美股", "A股", "港股", "日股")
@@ -834,17 +1109,17 @@ actor MarketDataService {
     func fetchMarketMovers(market: String = "美股", type: String = "gainers") async throws -> [QuoteData] {
         switch market {
         case "美股":
-            // 美股使用真实涨跌幅排行榜 API
+            // 美股使用 Yahoo Finance 真实涨跌幅排行榜 API
             return try await fetchUSMarketMovers(type: type)
         case "港股":
-            // 港股使用真实涨跌幅排行榜 API
+            // 港股使用 Yahoo Finance 真实涨跌幅排行榜 API
             return try await fetchHKMarketMovers(type: type)
         case "A股":
-            // A股暂无真实排行榜 API，使用样本数据
-            return try await fetchQuotes(symbols: MarketDataService.marketMoverSymbols_CN)
+            // A股使用东方财富真实涨跌幅排行榜 API
+            return try await fetchCNMarketMovers(type: type)
         case "日股":
-            // 日股暂无真实排行榜 API，使用样本数据
-            return try await fetchQuotes(symbols: MarketDataService.marketMoverSymbols_JP)
+            // 日股获取日经225成分股数据，本地排序
+            return try await fetchJPMarketMovers(type: type)
         default:
             return try await fetchUSMarketMovers(type: type)
         }

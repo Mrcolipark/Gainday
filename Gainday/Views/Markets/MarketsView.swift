@@ -278,10 +278,8 @@ struct MarketsView: View {
                         withAnimation(.easeInOut(duration: 0.2)) {
                             selectedMoverTab = index
                         }
-                        // 美股和港股需要重新加载不同的排行榜
-                        if selectedMarket == .us || selectedMarket == .hk {
-                            Task { await loadMovers() }
-                        }
+                        // 所有市场都需要重新加载排行榜（现在 A股/日股 也使用真实 API）
+                        Task { await loadMovers() }
                     } label: {
                         Text(titles[index])
                             .font(.system(size: 13, weight: selectedMoverTab == index ? .semibold : .medium))
@@ -345,25 +343,8 @@ struct MarketsView: View {
     }
 
     private var filteredMovers: [MarketDataService.QuoteData] {
-        // 美股和港股使用真实排行榜 API，数据已经按正确顺序排序
-        if selectedMarket == .us || selectedMarket == .hk {
-            return marketMovers
-        }
-
-        // A股和日股使用样本数据，需要本地排序
-        switch selectedMoverTab {
-        case 0: // 涨幅榜
-            return marketMovers
-                .filter { ($0.regularMarketChangePercent ?? 0) > 0 }
-                .sorted { ($0.regularMarketChangePercent ?? 0) > ($1.regularMarketChangePercent ?? 0) }
-        case 1: // 跌幅榜
-            return marketMovers
-                .filter { ($0.regularMarketChangePercent ?? 0) < 0 }
-                .sorted { ($0.regularMarketChangePercent ?? 0) < ($1.regularMarketChangePercent ?? 0) }
-        default: // 成交量
-            return marketMovers
-                .sorted { ($0.regularMarketVolume ?? 0) > ($1.regularMarketVolume ?? 0) }
-        }
+        // 所有市场现在都使用真实排行榜 API，数据已按正确顺序排序
+        return marketMovers
     }
 
     private var emptyMoversView: some View {
