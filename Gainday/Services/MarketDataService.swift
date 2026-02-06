@@ -644,19 +644,9 @@ actor MarketDataService {
         return try await fetchQuotes(symbols: symbols)
     }
 
-    // MARK: - Market Movers
+    // MARK: - Market Movers (Real-time rankings)
 
-    // 美股 - S&P 500 成分股样本
-    static let marketMoverSymbols_US = [
-        "AAPL", "MSFT", "GOOGL", "AMZN", "NVDA",
-        "META", "TSLA", "BRK-B", "JPM", "V",
-        "UNH", "XOM", "MA", "HD", "PG",
-        "JNJ", "COST", "ABBV", "MRK", "CVX",
-        "KO", "PEP", "AVGO", "LLY", "WMT",
-        "BAC", "MCD", "CSCO", "TMO", "ABT"
-    ]
-
-    // A股 - 沪深300成分股样本
+    // A股 - 沪深300成分股样本（备用）
     static let marketMoverSymbols_CN = [
         "600519.SS", "601318.SS", "600036.SS", "000858.SZ", "600276.SS",
         "601166.SS", "000333.SZ", "600900.SS", "601288.SS", "600030.SS",
@@ -665,7 +655,7 @@ actor MarketDataService {
         "002304.SZ", "600585.SS", "000725.SZ", "601899.SS", "600438.SS"
     ]
 
-    // 港股 - 恒生指数成分股样本
+    // 港股 - 恒生指数成分股样本（备用）
     static let marketMoverSymbols_HK = [
         "0700.HK", "9988.HK", "0941.HK", "1299.HK", "2318.HK",
         "0005.HK", "3690.HK", "1810.HK", "0388.HK", "0883.HK",
@@ -674,7 +664,7 @@ actor MarketDataService {
         "0762.HK", "0003.HK", "0012.HK", "2007.HK", "0857.HK"
     ]
 
-    // 日股 - 日经225成分股样本
+    // 日股 - 日经225成分股样本（备用）
     static let marketMoverSymbols_JP = [
         "7203.T", "6758.T", "9984.T", "8306.T", "6861.T",
         "7267.T", "9432.T", "6501.T", "7974.T", "4063.T",
@@ -683,21 +673,181 @@ actor MarketDataService {
         "8001.T", "3382.T", "6954.T", "4661.T", "6981.T"
     ]
 
-    func fetchMarketMovers(market: Any? = nil) async throws -> [QuoteData] {
-        var symbols = MarketDataService.marketMoverSymbols_US
+    // Yahoo Finance Screener 响应结构
+    struct ScreenerResponse: Codable {
+        let finance: ScreenerFinance
+    }
 
-        // 根据市场类型选择股票列表
-        if let marketStr = market as? String {
-            switch marketStr {
-            case "美股": symbols = MarketDataService.marketMoverSymbols_US
-            case "A股": symbols = MarketDataService.marketMoverSymbols_CN
-            case "港股": symbols = MarketDataService.marketMoverSymbols_HK
-            case "日股": symbols = MarketDataService.marketMoverSymbols_JP
-            default: break
-            }
+    struct ScreenerFinance: Codable {
+        let result: [ScreenerResult]?
+        let error: ScreenerError?
+    }
+
+    struct ScreenerError: Codable {
+        let code: String?
+        let description: String?
+    }
+
+    struct ScreenerResult: Codable {
+        let quotes: [ScreenerQuote]?
+    }
+
+    struct ScreenerQuote: Codable {
+        let symbol: String
+        let shortName: String?
+        let longName: String?
+        let regularMarketPrice: FormattedValue?
+        let regularMarketChange: FormattedValue?
+        let regularMarketChangePercent: FormattedValue?
+        let regularMarketVolume: FormattedValue?
+        let marketCap: FormattedValue?
+        let trailingPE: FormattedValue?
+        let fiftyTwoWeekHigh: FormattedValue?
+        let fiftyTwoWeekLow: FormattedValue?
+        let dividendYield: FormattedValue?
+        let epsTrailingTwelveMonths: FormattedValue?
+    }
+
+    struct FormattedValue: Codable {
+        let raw: Double?
+        let fmt: String?
+    }
+
+    /// 获取美股真实涨跌幅排行榜
+    func fetchUSMarketMovers(type: String = "gainers") async throws -> [QuoteData] {
+        let scrId: String
+        switch type {
+        case "gainers": scrId = "day_gainers"
+        case "losers": scrId = "day_losers"
+        case "actives": scrId = "most_actives"
+        default: scrId = "day_gainers"
         }
 
-        return try await fetchQuotes(symbols: symbols)
+        let urlString = "https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved?formatted=true&lang=en-US&region=US&scrIds=\(scrId)&count=30"
+        guard let url = URL(string: urlString) else {
+            throw MarketDataError.invalidURL
+        }
+
+        let (data, response) = try await session.data(from: url)
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            throw MarketDataError.httpError
+        }
+
+        let screenerResponse = try JSONDecoder().decode(ScreenerResponse.self, from: data)
+        guard let quotes = screenerResponse.finance.result?.first?.quotes else {
+            throw MarketDataError.noData
+        }
+
+        // 转换为 QuoteData
+        return quotes.map { sq in
+            QuoteData(
+                symbol: sq.symbol,
+                shortName: sq.shortName,
+                longName: sq.longName,
+                regularMarketPrice: sq.regularMarketPrice?.raw,
+                regularMarketChange: sq.regularMarketChange?.raw,
+                regularMarketChangePercent: sq.regularMarketChangePercent?.raw,
+                regularMarketPreviousClose: nil,
+                currency: "USD",
+                marketState: nil,
+                preMarketPrice: nil,
+                preMarketChange: nil,
+                preMarketChangePercent: nil,
+                postMarketPrice: nil,
+                postMarketChange: nil,
+                postMarketChangePercent: nil,
+                regularMarketOpen: nil,
+                regularMarketDayHigh: nil,
+                regularMarketDayLow: nil,
+                regularMarketVolume: sq.regularMarketVolume?.raw,
+                marketCap: sq.marketCap?.raw,
+                trailingPE: sq.trailingPE?.raw,
+                fiftyTwoWeekHigh: sq.fiftyTwoWeekHigh?.raw,
+                fiftyTwoWeekLow: sq.fiftyTwoWeekLow?.raw,
+                dividendYield: sq.dividendYield?.raw,
+                epsTrailingTwelveMonths: sq.epsTrailingTwelveMonths?.raw
+            )
+        }
+    }
+
+    /// 获取港股真实涨跌幅排行榜
+    func fetchHKMarketMovers(type: String = "gainers") async throws -> [QuoteData] {
+        let scrId: String
+        switch type {
+        case "gainers": scrId = "day_gainers_hk"
+        case "losers": scrId = "day_losers_hk"
+        case "actives": scrId = "most_actives_hk"
+        default: scrId = "day_gainers_hk"
+        }
+
+        let urlString = "https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved?formatted=true&lang=en-US&region=US&scrIds=\(scrId)&count=30"
+        guard let url = URL(string: urlString) else {
+            throw MarketDataError.invalidURL
+        }
+
+        let (data, response) = try await session.data(from: url)
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            throw MarketDataError.httpError
+        }
+
+        let screenerResponse = try JSONDecoder().decode(ScreenerResponse.self, from: data)
+        guard let quotes = screenerResponse.finance.result?.first?.quotes else {
+            throw MarketDataError.noData
+        }
+
+        // 转换为 QuoteData
+        return quotes.map { sq in
+            QuoteData(
+                symbol: sq.symbol,
+                shortName: sq.shortName,
+                longName: sq.longName,
+                regularMarketPrice: sq.regularMarketPrice?.raw,
+                regularMarketChange: sq.regularMarketChange?.raw,
+                regularMarketChangePercent: sq.regularMarketChangePercent?.raw,
+                regularMarketPreviousClose: nil,
+                currency: "HKD",
+                marketState: nil,
+                preMarketPrice: nil,
+                preMarketChange: nil,
+                preMarketChangePercent: nil,
+                postMarketPrice: nil,
+                postMarketChange: nil,
+                postMarketChangePercent: nil,
+                regularMarketOpen: nil,
+                regularMarketDayHigh: nil,
+                regularMarketDayLow: nil,
+                regularMarketVolume: sq.regularMarketVolume?.raw,
+                marketCap: sq.marketCap?.raw,
+                trailingPE: sq.trailingPE?.raw,
+                fiftyTwoWeekHigh: sq.fiftyTwoWeekHigh?.raw,
+                fiftyTwoWeekLow: sq.fiftyTwoWeekLow?.raw,
+                dividendYield: sq.dividendYield?.raw,
+                epsTrailingTwelveMonths: sq.epsTrailingTwelveMonths?.raw
+            )
+        }
+    }
+
+    /// 获取市场热门股票
+    /// - Parameters:
+    ///   - market: 市场名称 ("美股", "A股", "港股", "日股")
+    ///   - type: 排行类型 ("gainers", "losers", "actives")
+    func fetchMarketMovers(market: String = "美股", type: String = "gainers") async throws -> [QuoteData] {
+        switch market {
+        case "美股":
+            // 美股使用真实涨跌幅排行榜 API
+            return try await fetchUSMarketMovers(type: type)
+        case "港股":
+            // 港股使用真实涨跌幅排行榜 API
+            return try await fetchHKMarketMovers(type: type)
+        case "A股":
+            // A股暂无真实排行榜 API，使用样本数据
+            return try await fetchQuotes(symbols: MarketDataService.marketMoverSymbols_CN)
+        case "日股":
+            // 日股暂无真实排行榜 API，使用样本数据
+            return try await fetchQuotes(symbols: MarketDataService.marketMoverSymbols_JP)
+        default:
+            return try await fetchUSMarketMovers(type: type)
+        }
     }
 
     // MARK: - Symbol Search

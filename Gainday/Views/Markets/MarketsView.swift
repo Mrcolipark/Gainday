@@ -76,8 +76,17 @@ struct MarketsView: View {
     }
 
     private func loadMovers() async {
+        // 根据选择的 tab 确定排行类型
+        let type: String
+        switch selectedMoverTab {
+        case 0: type = "gainers"
+        case 1: type = "losers"
+        case 2: type = "actives"
+        default: type = "gainers"
+        }
+
         do {
-            let result = try await MarketDataService.shared.fetchMarketMovers(market: selectedMarket.rawValue)
+            let result = try await MarketDataService.shared.fetchMarketMovers(market: selectedMarket.rawValue, type: type)
             if !result.isEmpty {
                 await MainActor.run { marketMovers = result }
             }
@@ -269,6 +278,10 @@ struct MarketsView: View {
                         withAnimation(.easeInOut(duration: 0.2)) {
                             selectedMoverTab = index
                         }
+                        // 美股和港股需要重新加载不同的排行榜
+                        if selectedMarket == .us || selectedMarket == .hk {
+                            Task { await loadMovers() }
+                        }
                     } label: {
                         Text(titles[index])
                             .font(.system(size: 13, weight: selectedMoverTab == index ? .semibold : .medium))
@@ -332,6 +345,12 @@ struct MarketsView: View {
     }
 
     private var filteredMovers: [MarketDataService.QuoteData] {
+        // 美股和港股使用真实排行榜 API，数据已经按正确顺序排序
+        if selectedMarket == .us || selectedMarket == .hk {
+            return marketMovers
+        }
+
+        // A股和日股使用样本数据，需要本地排序
         switch selectedMoverTab {
         case 0: // 涨幅榜
             return marketMovers
