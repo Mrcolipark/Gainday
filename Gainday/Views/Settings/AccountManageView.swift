@@ -1,7 +1,7 @@
 import SwiftUI
 import SwiftData
 
-/// 账户管理详情页 - 统一设计语言
+/// 账户管理详情页 - 统一设计语言（精简配色）
 struct AccountManageView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
@@ -13,6 +13,8 @@ struct AccountManageView: View {
     @State private var editedColorTag: String = "blue"
     @State private var showDeleteConfirmation = false
     @State private var holdingToDelete: Holding?
+
+    private let accentColor = AppColors.profit
 
     var body: some View {
         ScrollView {
@@ -125,7 +127,7 @@ struct AccountManageView: View {
                                     .padding(.vertical, 10)
                                     .background(
                                         RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                            .fill(editedAccountType == type ? AppColors.profit : AppColors.elevatedSurface)
+                                            .fill(editedAccountType == type ? accentColor : AppColors.elevatedSurface)
                                     )
                                 }
                             }
@@ -151,7 +153,7 @@ struct AccountManageView: View {
                                     .padding(.vertical, 10)
                                     .background(
                                         RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                            .fill(editedBaseCurrency == currency ? AppColors.profit : AppColors.elevatedSurface)
+                                            .fill(editedBaseCurrency == currency ? accentColor : AppColors.elevatedSurface)
                                     )
                             }
                         }
@@ -302,12 +304,12 @@ struct AccountManageView: View {
             // 资产类型图标
             ZStack {
                 Circle()
-                    .fill(holding.assetTypeEnum.color.opacity(0.15))
+                    .fill(accentColor.opacity(0.15))
                     .frame(width: 36, height: 36)
 
                 Image(systemName: holding.assetTypeEnum.iconName)
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(holding.assetTypeEnum.color)
+                    .foregroundStyle(accentColor)
             }
 
             // 信息
@@ -413,7 +415,7 @@ struct AccountManageView: View {
         HStack(spacing: 6) {
             Image(systemName: icon)
                 .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(AppColors.profit)
+                .foregroundStyle(accentColor)
 
             Text(title)
                 .font(.system(size: 13, weight: .semibold))

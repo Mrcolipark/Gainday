@@ -6,7 +6,7 @@ import UniformTypeIdentifiers
 import UIKit
 #endif
 
-/// 设置页面 - 统一设计语言
+/// 设置页面 - 统一设计语言（精简配色）
 struct SettingsView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
@@ -22,6 +22,9 @@ struct SettingsView: View {
     @State private var showImportPicker = false
     @State private var importResult: CSVImportService.ImportResult?
     @State private var showImportResult = false
+
+    // 主题色 - 统一使用绿色
+    private let accentColor = AppColors.profit
 
     var body: some View {
         NavigationStack {
@@ -64,7 +67,7 @@ struct SettingsView: View {
                         dismiss()
                     }
                     .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(AppColors.profit)
+                    .foregroundStyle(accentColor)
                 }
             }
             #endif
@@ -127,7 +130,7 @@ struct SettingsView: View {
 
             VStack(spacing: 0) {
                 HStack(spacing: 12) {
-                    settingsIcon("yensign.circle.fill", color: AppColors.profit)
+                    settingsIcon("yensign.circle.fill")
 
                     Text("基准货币")
                         .font(.system(size: 15))
@@ -185,16 +188,16 @@ struct SettingsView: View {
                     HStack(spacing: 12) {
                         ZStack {
                             Circle()
-                                .fill(AppColors.profit.opacity(0.15))
+                                .fill(accentColor.opacity(0.15))
                                 .frame(width: 36, height: 36)
                             Image(systemName: "plus")
                                 .font(.system(size: 16, weight: .semibold))
-                                .foregroundStyle(AppColors.profit)
+                                .foregroundStyle(accentColor)
                         }
 
                         Text("添加账户")
                             .font(.system(size: 15, weight: .medium))
-                            .foregroundStyle(AppColors.profit)
+                            .foregroundStyle(accentColor)
 
                         Spacer()
                     }
@@ -271,7 +274,7 @@ struct SettingsView: View {
 
             VStack(spacing: 0) {
                 HStack(spacing: 12) {
-                    settingsIcon("icloud.fill", color: .cyan)
+                    settingsIcon("icloud.fill")
 
                     Text("iCloud 同步")
                         .font(.system(size: 15))
@@ -281,7 +284,7 @@ struct SettingsView: View {
 
                     Toggle("", isOn: $iCloudSync)
                         .labelsHidden()
-                        .tint(AppColors.profit)
+                        .tint(accentColor)
                 }
                 .padding(16)
             }
@@ -300,7 +303,7 @@ struct SettingsView: View {
 
             VStack(spacing: 0) {
                 HStack(spacing: 12) {
-                    settingsIcon("paintpalette.fill", color: .purple)
+                    settingsIcon("circle.lefthalf.filled")
 
                     Text("主题")
                         .font(.system(size: 15))
@@ -337,7 +340,7 @@ struct SettingsView: View {
                     exportCSV()
                 } label: {
                     HStack(spacing: 12) {
-                        settingsIcon("square.and.arrow.up.fill", color: .orange)
+                        settingsIcon("square.and.arrow.up.fill")
 
                         Text("导出数据 (CSV)")
                             .font(.system(size: 15))
@@ -363,7 +366,7 @@ struct SettingsView: View {
                     showImportPicker = true
                 } label: {
                     HStack(spacing: 12) {
-                        settingsIcon("square.and.arrow.down.fill", color: .teal)
+                        settingsIcon("square.and.arrow.down.fill")
 
                         Text("导入数据 (CSV)")
                             .font(.system(size: 15))
@@ -397,7 +400,7 @@ struct SettingsView: View {
             VStack(spacing: 0) {
                 // App 名称
                 HStack(spacing: 12) {
-                    settingsIcon("sparkles", color: AppColors.profit)
+                    settingsIcon("sparkles")
 
                     Text("App 名称")
                         .font(.system(size: 15))
@@ -417,7 +420,7 @@ struct SettingsView: View {
 
                 // 版本
                 HStack(spacing: 12) {
-                    settingsIcon("info.circle.fill", color: .indigo)
+                    settingsIcon("info.circle.fill")
 
                     Text("版本")
                         .font(.system(size: 15))
@@ -436,9 +439,9 @@ struct SettingsView: View {
                     .padding(.leading, 60)
 
                 // 反馈
-                Link(destination: URL(string: "https://github.com")!) {
+                Link(destination: URL(string: "https://github.com/Mrcolipark/Gainday")!) {
                     HStack(spacing: 12) {
-                        settingsIcon("envelope.fill", color: .blue)
+                        settingsIcon("bubble.left.and.bubble.right.fill")
 
                         Text("反馈与建议")
                             .font(.system(size: 15))
@@ -483,7 +486,7 @@ struct SettingsView: View {
         HStack(spacing: 6) {
             Image(systemName: icon)
                 .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(AppColors.profit)
+                .foregroundStyle(accentColor)
 
             Text(title)
                 .font(.system(size: 13, weight: .semibold))
@@ -491,15 +494,12 @@ struct SettingsView: View {
         }
     }
 
-    private func settingsIcon(_ name: String, color: Color) -> some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(color)
-                .frame(width: 32, height: 32)
-            Image(systemName: name)
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(.white)
-        }
+    /// 统一的设置图标 - 简洁绿色图标
+    private func settingsIcon(_ name: String) -> some View {
+        Image(systemName: name)
+            .font(.system(size: 20, weight: .medium))
+            .foregroundStyle(accentColor)
+            .frame(width: 32, height: 32)
     }
 
     // MARK: - 数据操作
@@ -551,6 +551,8 @@ struct AddAccountSheet: View {
     @State private var accountType: AccountType = .normal
     @State private var baseCurrency: BaseCurrency = .JPY
     @State private var colorTag = "blue"
+
+    private let accentColor = AppColors.profit
 
     var body: some View {
         NavigationStack {
@@ -635,7 +637,7 @@ struct AddAccountSheet: View {
                                     .padding(.vertical, 10)
                                     .background(
                                         RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                            .fill(accountType == type ? AppColors.profit : AppColors.elevatedSurface)
+                                            .fill(accountType == type ? accentColor : AppColors.elevatedSurface)
                                     )
                                 }
                             }
@@ -661,7 +663,7 @@ struct AddAccountSheet: View {
                                     .padding(.vertical, 10)
                                     .background(
                                         RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                            .fill(baseCurrency == currency ? AppColors.profit : AppColors.elevatedSurface)
+                                            .fill(baseCurrency == currency ? accentColor : AppColors.elevatedSurface)
                                     )
                             }
                         }
@@ -777,7 +779,7 @@ struct AddAccountSheet: View {
                     .padding(.vertical, 16)
                     .background(
                         RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .fill(name.isEmpty ? AppColors.textTertiary : AppColors.profit)
+                            .fill(name.isEmpty ? AppColors.textTertiary : accentColor)
                     )
             }
             .disabled(name.isEmpty)
