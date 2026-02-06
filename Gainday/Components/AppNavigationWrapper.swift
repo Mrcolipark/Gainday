@@ -13,7 +13,8 @@ struct AppNavigationWrapper<Content: View>: View {
     var body: some View {
         NavigationStack {
             content
-                .navigationTitle(title)
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbarBackground(.hidden, for: .navigationBar)
                 .toolbar {
                     ToolbarItem(placement: .topBarTrailing) {
                         Button {
@@ -21,7 +22,7 @@ struct AppNavigationWrapper<Content: View>: View {
                         } label: {
                             Image(systemName: "gearshape")
                                 .font(.body.weight(.medium))
-                                .foregroundStyle(.primary)
+                                .foregroundStyle(AppColors.textPrimary)
                         }
                     }
                 }
@@ -40,7 +41,8 @@ struct AppNavigationModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .navigationTitle(title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.hidden, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
@@ -48,7 +50,7 @@ struct AppNavigationModifier: ViewModifier {
                     } label: {
                         Image(systemName: "gearshape")
                             .font(.body.weight(.medium))
-                            .foregroundStyle(.primary)
+                            .foregroundStyle(AppColors.textPrimary)
                     }
                 }
             }

@@ -42,23 +42,23 @@ enum AppColors {
     /// 第三级文字 - 更暗的灰
     static let textTertiary = Color(hex: 0x636366)
 
-    // MARK: - 12+ Stop Saturated Heatmap Colors
+    // MARK: - 12+ Stop Saturated Heatmap Colors (High Contrast)
 
     static func pnlColor(percent: Double) -> Color {
         switch percent {
         case ..<(-5):   return Color(hex: 0xB71C1C)   // deep crimson
-        case ..<(-3):   return Color(hex: 0xD32F2F)   // crimson
-        case ..<(-2):   return Color(hex: 0xE53935)   // red
-        case ..<(-1):   return Color(hex: 0xEF5350)   // light red
-        case ..<(-0.5): return Color(hex: 0xE57373)   // coral
-        case ..<0:      return Color(hex: 0xFFCDD2)   // muted pink
-        case 0:         return Color(hex: 0xE0E0E0)   // neutral gray
-        case ..<0.5:    return Color(hex: 0xC8E6C9)   // pale green
-        case ..<1:      return Color(hex: 0xA5D6A7)   // light green
-        case ..<2:      return Color(hex: 0x66BB6A)   // emerald
-        case ..<3:      return Color(hex: 0x43A047)   // green
-        case ..<5:      return Color(hex: 0x2E7D32)   // deep green
-        default:        return Color(hex: 0x1B5E20)   // darkest green
+        case ..<(-3):   return Color(hex: 0xC62828)   // dark red
+        case ..<(-2):   return Color(hex: 0xD32F2F)   // crimson
+        case ..<(-1):   return Color(hex: 0xE53935)   // red
+        case ..<(-0.5): return Color(hex: 0xEF5350)   // coral red
+        case ..<0:      return Color(hex: 0xF44336)   // medium red (替代淡粉)
+        case 0:         return Color(hex: 0x616161)   // neutral dark gray
+        case ..<0.5:    return Color(hex: 0x4CAF50)   // medium green (替代淡绿)
+        case ..<1:      return Color(hex: 0x43A047)   // green
+        case ..<2:      return Color(hex: 0x388E3C)   // darker green
+        case ..<3:      return Color(hex: 0x2E7D32)   // deep green
+        case ..<5:      return Color(hex: 0x1B5E20)   // darkest green
+        default:        return Color(hex: 0x0D5302)   // ultra deep green
         }
     }
 

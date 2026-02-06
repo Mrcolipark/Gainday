@@ -1,5 +1,6 @@
 import SwiftUI
 
+/// 日历日期格子 - 统一设计语言
 struct CalendarDayCell: View {
     let date: Date
     let snapshot: DailySnapshot?
@@ -26,73 +27,65 @@ struct CalendarDayCell: View {
         return AppColors.pnlColor(percent: pct)
     }
 
-    /// Glow color based on P&L direction
     private var glowColor: Color {
         guard let pct = pnlPercent else { return .clear }
-        return pct >= 0 ? .green : .red
+        return pct >= 0 ? AppColors.profit : AppColors.loss
     }
 
-    /// Glow intensity scales with P&L magnitude
     private var glowIntensity: Double {
         guard let pct = pnlPercent else { return 0 }
-        return min(abs(pct) / 5.0, 1.0) * 0.5
+        return min(abs(pct) / 5.0, 1.0) * 0.4
     }
 
-    /// Text color for readability on colored backgrounds
     private var textColor: Color {
-        guard let pct = pnlPercent else {
+        guard snapshot != nil else {
             return AppColors.textPrimary
         }
-        // For strong colors, use white text
-        if abs(pct) > 1.5 {
-            return .white
-        }
-        return AppColors.textPrimary
+        // 有数据时始终使用白色文字（深色饱和背景）
+        return .white
     }
 
     private var secondaryTextColor: Color {
-        guard let pct = pnlPercent else {
+        guard snapshot != nil else {
             return AppColors.textSecondary
         }
-        if abs(pct) > 1.5 {
-            return .white.opacity(0.85)
-        }
-        return AppColors.textSecondary
+        // 有数据时使用半透明白色
+        return .white.opacity(0.85)
     }
 
     @State private var todayGlow = false
 
     var body: some View {
-        VStack(spacing: 2) {
-            // Day number - top
+        VStack(spacing: 3) {
+            // 日期数字
             Text(date.dayString)
-                .font(.system(size: 11, weight: .semibold, design: .default))
-                .foregroundStyle(isToday ? .white : textColor.opacity(0.8))
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(isToday ? .white : textColor.opacity(0.85))
 
             if let snapshot = snapshot {
-                // P&L Amount - middle (main focus)
+                // 盈亏金额
                 Text(snapshot.dailyPnL.compactFormatted(showSign: true))
-                    .font(.system(size: 10, weight: .bold, design: .rounded))
+                    .font(.system(size: 11, weight: .bold, design: .rounded))
                     .foregroundStyle(isToday ? .white : textColor)
                     .lineLimit(1)
                     .minimumScaleFactor(0.6)
 
-                // P&L Percent - bottom
+                // 盈亏百分比
                 Text(snapshot.dailyPnLPercent.percentFormatted())
-                    .font(.system(size: 8, weight: .medium, design: .monospaced))
+                    .font(.system(size: 9, weight: .medium, design: .monospaced))
                     .foregroundStyle(isToday ? .white.opacity(0.9) : secondaryTextColor)
                     .lineLimit(1)
             } else {
-                // Empty placeholder to maintain height
+                // 空白占位
                 Text(" ")
-                    .font(.system(size: 10, weight: .bold))
+                    .font(.system(size: 11, weight: .bold))
                 Text(" ")
-                    .font(.system(size: 8))
+                    .font(.system(size: 9))
             }
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 6)
         .padding(.horizontal, 2)
-        .frame(maxWidth: .infinity, minHeight: 52)
+        .frame(maxWidth: .infinity, minHeight: 56)
         .background {
             if isToday {
                 todayBackground
@@ -103,18 +96,29 @@ struct CalendarDayCell: View {
         .heatmapCellAppearance(row: row, col: col)
     }
 
-    // MARK: - Today Background
+    // MARK: - 今日背景
+
+    /// 今日格子的主题色（根据盈亏决定）
+    private var todayColor: Color {
+        guard let pct = pnlPercent else {
+            return AppColors.profit  // 无数据时默认绿色
+        }
+        return pct >= 0 ? AppColors.profit : AppColors.loss
+    }
 
     private var todayBackground: some View {
         ZStack {
+            // 主背景
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .fill(
                     LinearGradient(
-                        colors: [.blue, .blue.opacity(0.8)],
+                        colors: [todayColor, todayColor.opacity(0.8)],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
                 )
+
+            // 高光
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .fill(
                     LinearGradient(
@@ -123,12 +127,13 @@ struct CalendarDayCell: View {
                         endPoint: .center
                     )
                 )
-            // Pulsing glow border for today
+
+            // 呼吸边框
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .stroke(.white.opacity(todayGlow ? 0.6 : 0.3), lineWidth: 1.5)
                 .scaleEffect(todayGlow ? 1.02 : 1.0)
         }
-        .shadow(color: .blue.opacity(todayGlow ? 0.6 : 0.4), radius: todayGlow ? 8 : 5, x: 0, y: 2)
+        .shadow(color: todayColor.opacity(todayGlow ? 0.6 : 0.4), radius: todayGlow ? 8 : 5, x: 0, y: 2)
         .onAppear {
             withAnimation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true)) {
                 todayGlow = true
@@ -136,41 +141,37 @@ struct CalendarDayCell: View {
         }
     }
 
-    // MARK: - Normal Background
+    // MARK: - 普通背景
 
     private var normalBackground: some View {
         ZStack {
+            // 主背景
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .fill(backgroundColor)
 
-            // Glass highlight on colored cells
+            // 有数据时的高光效果
             if snapshot != nil {
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
                     .fill(
                         LinearGradient(
-                            colors: [.white.opacity(0.25), .clear],
+                            colors: [.white.opacity(0.2), .clear],
                             startPoint: .top,
                             endPoint: .center
                         )
                     )
 
-                // Inner shadow for depth
+                // 内边框
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
                     .strokeBorder(
                         LinearGradient(
-                            colors: [.black.opacity(0.1), .clear, .white.opacity(0.15)],
+                            colors: [.white.opacity(0.15), .clear, .black.opacity(0.1)],
                             startPoint: .top,
                             endPoint: .bottom
                         ),
                         lineWidth: 1
                     )
             }
-
-            // Subtle border
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .strokeBorder(.white.opacity(snapshot != nil ? 0.15 : 0.08), lineWidth: 0.5)
         }
-        // Colored glow shadow for data cells
         .shadow(color: glowColor.opacity(glowIntensity), radius: 6, x: 0, y: 2)
     }
 }
@@ -230,4 +231,5 @@ struct CalendarDayCell: View {
     }
     .padding()
     .background(AppColors.background)
+    .preferredColorScheme(.dark)
 }

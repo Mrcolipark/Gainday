@@ -330,6 +330,8 @@ struct ExpandableHoldingRow: View {
         modelContext.delete(transaction)
         do {
             try modelContext.save()
+            // 通知日历视图刷新
+            NotificationCenter.default.post(name: .portfolioDataDidChange, object: nil)
         } catch {
             ErrorPresenter.shared.showError(error)
         }
@@ -449,11 +451,15 @@ struct InlineAddTransactionForm: View {
                 }
 
                 formRow(label: "数量") {
-                    TextField("0", text: $quantity)
-                        .keyboardType(.decimalPad)
-                        .multilineTextAlignment(.trailing)
-                        .font(.system(size: 15, design: .monospaced))
-                        .foregroundStyle(AppColors.textPrimary)
+                    TextField(
+                        "",
+                        text: $quantity,
+                        prompt: Text("0").foregroundStyle(AppColors.textTertiary)
+                    )
+                    .keyboardType(.decimalPad)
+                    .multilineTextAlignment(.trailing)
+                    .font(.system(size: 15, design: .monospaced))
+                    .foregroundStyle(AppColors.textPrimary)
                 }
 
                 formRow(label: "价格") {
@@ -462,20 +468,28 @@ struct InlineAddTransactionForm: View {
                             ProgressView()
                                 .scaleEffect(0.7)
                         }
-                        TextField("0.00", text: $price)
-                            .keyboardType(.decimalPad)
-                            .multilineTextAlignment(.trailing)
-                            .font(.system(size: 15, design: .monospaced))
-                            .foregroundStyle(AppColors.textPrimary)
-                    }
-                }
-
-                formRow(label: "手续费") {
-                    TextField("0", text: $fee)
+                        TextField(
+                            "",
+                            text: $price,
+                            prompt: Text("0.00").foregroundStyle(AppColors.textTertiary)
+                        )
                         .keyboardType(.decimalPad)
                         .multilineTextAlignment(.trailing)
                         .font(.system(size: 15, design: .monospaced))
                         .foregroundStyle(AppColors.textPrimary)
+                    }
+                }
+
+                formRow(label: "手续费") {
+                    TextField(
+                        "",
+                        text: $fee,
+                        prompt: Text("0").foregroundStyle(AppColors.textTertiary)
+                    )
+                    .keyboardType(.decimalPad)
+                    .multilineTextAlignment(.trailing)
+                    .font(.system(size: 15, design: .monospaced))
+                    .foregroundStyle(AppColors.textPrimary)
                 }
             }
 
@@ -601,6 +615,8 @@ struct InlineAddTransactionForm: View {
 
         do {
             try modelContext.save()
+            // 通知日历视图刷新
+            NotificationCenter.default.post(name: .portfolioDataDidChange, object: nil)
             clearForm()
             onSave?()
         } catch {

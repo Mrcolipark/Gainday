@@ -5,20 +5,40 @@ struct HoldingDetailView: View {
     let holding: Holding
     let quote: MarketDataService.QuoteData?
 
-    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.dismiss) private var dismiss
     @State private var chartData: [PriceCacheData] = []
     @State private var isLoadingChart = false
-    @State private var animateContent = false
     @State private var selectedTimeRange: TimeRange = .threeMonths
     @State private var selectedTab = 0
+    @State private var detailedQuote: MarketDataService.QuoteData?
 
-    private var currentPrice: Double {
-        quote?.regularMarketPrice ?? 0
+    // 使用详细数据（如果可用）或传入的基础数据
+    private var displayQuote: MarketDataService.QuoteData? {
+        detailedQuote ?? quote
     }
 
-    private var pnlColor: Color {
-        let unrealized = (currentPrice - holding.averageCost) * holding.totalQuantity
-        return unrealized >= 0 ? .green : .red
+    private var currentPrice: Double {
+        displayQuote?.regularMarketPrice ?? 0
+    }
+
+    private var dailyChange: Double {
+        displayQuote?.regularMarketChange ?? 0
+    }
+
+    private var dailyChangePercent: Double {
+        displayQuote?.regularMarketChangePercent ?? 0
+    }
+
+    private var unrealizedPnL: Double {
+        (currentPrice - holding.averageCost) * holding.totalQuantity
+    }
+
+    private var unrealizedPnLPercent: Double {
+        holding.averageCost > 0 ? ((currentPrice - holding.averageCost) / holding.averageCost) * 100 : 0
+    }
+
+    private var isPositive: Bool {
+        dailyChange >= 0
     }
 
     private var marketState: MarketState? {
@@ -27,180 +47,181 @@ struct HoldingDetailView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(spacing: 16) {
-                    // 1. Hero: Symbol + Name, large price, change badge, market state
-                    heroSection
-                        .opacity(animateContent ? 1 : 0)
-                        .offset(y: animateContent ? 0 : 20)
+        ScrollView {
+            VStack(spacing: 16) {
+                // 头部：价格信息
+                headerSection
 
-                    // 2. Interactive chart with time range selector
-                    chartSection
-                        .opacity(animateContent ? 1 : 0)
-                        .offset(y: animateContent ? 0 : 15)
+                // 图表
+                chartSection
 
-                    // 3. Tabbed sections
-                    tabbedSections
-                        .opacity(animateContent ? 1 : 0)
-                        .offset(y: animateContent ? 0 : 10)
-                }
-                .padding()
-            }
-            .background(detailBackground)
-            .navigationTitle(holding.symbol)
-            #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
-            #endif
-            .task {
-                await loadChartData()
-                withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
-                    animateContent = true
+                // 分段选择器
+                tabSelector
+
+                // 内容区域
+                switch selectedTab {
+                case 0:
+                    summarySection
+                case 1:
+                    positionSection
+                case 2:
+                    transactionsSection
+                default:
+                    EmptyView()
                 }
             }
+            .padding()
+        }
+        .background(AppColors.background)
+        .navigationTitle(holding.symbol)
+        .navigationBarTitleDisplayMode(.inline)
+        .task {
+            // 并行加载详细报价和图表
+            async let quoteTask: () = loadDetailedQuote()
+            async let chartTask: () = loadChartData()
+            _ = await (quoteTask, chartTask)
         }
     }
 
-    // MARK: - Background
-
-    private var detailBackground: some View {
-        AppColors.background
-            .ignoresSafeArea()
+    private func loadDetailedQuote() async {
+        do {
+            let detailed = try await MarketDataService.shared.fetchDetailedQuote(symbol: holding.symbol)
+            await MainActor.run { detailedQuote = detailed }
+        } catch {
+            print("[HoldingDetailView] Failed to load detailed quote: \(error)")
+        }
     }
 
-    // MARK: - Hero Section
+    // MARK: - 头部信息
 
-    private var heroSection: some View {
-        AccentGlassCard(color: pnlColor) {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack {
-                    VStack(alignment: .leading, spacing: 4) {
-                        HStack(spacing: 8) {
-                            // Ticker icon
-                            ZStack {
-                                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                    .fill(
-                                        LinearGradient(
-                                            colors: [pnlColor.opacity(0.15), pnlColor.opacity(0.05)],
-                                            startPoint: .topLeading,
-                                            endPoint: .bottomTrailing
-                                        )
-                                    )
-                                    .frame(width: 40, height: 40)
-                                Image(systemName: holding.assetTypeEnum.iconName)
-                                    .font(.system(size: 16, weight: .semibold))
-                                    .foregroundStyle(pnlColor)
-                            }
+    private var headerSection: some View {
+        VStack(spacing: 16) {
+            // 股票名称和市场状态
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(holding.symbol)
+                        .font(.system(size: 24, weight: .bold))
+                        .foregroundStyle(AppColors.textPrimary)
 
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(holding.symbol)
-                                    .font(AppFonts.tickerSymbol)
-                                Text(holding.name)
-                                    .font(AppFonts.tickerName)
-                                    .foregroundStyle(.secondary)
-                                    .lineLimit(1)
-                            }
-                        }
-                    }
-                    Spacer()
-                    if let state = marketState {
-                        MarketStateLabel(state: state)
-                    }
+                    Text(holding.name)
+                        .font(.system(size: 15))
+                        .foregroundStyle(AppColors.textSecondary)
+                        .lineLimit(1)
                 }
 
-                // Large price
+                Spacer()
+
+                if let state = marketState {
+                    MarketStateLabel(state: state)
+                }
+            }
+
+            // 当前价格
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
                 Text(currentPrice.currencyFormatted(code: holding.currency))
-                    .font(AppFonts.largeAmount)
-                    .contentTransition(.numericText())
+                    .font(.system(size: 36, weight: .bold, design: .rounded))
+                    .foregroundStyle(AppColors.textPrimary)
+                    .monospacedDigit()
 
-                // Change badge
-                if let change = quote?.regularMarketChange,
-                   let changePct = quote?.regularMarketChangePercent {
-                    HStack(spacing: 8) {
-                        PnLText(change, currencyCode: holding.currency, style: .small)
-                        PnLPercentText(changePct, style: .caption)
-                    }
+                Spacer()
+
+                // 涨跌幅徽章
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text(dailyChange.currencyFormatted(code: holding.currency, showSign: true))
+                        .font(.system(size: 15, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(isPositive ? AppColors.profit : AppColors.loss)
+
+                    Text(dailyChangePercent.percentFormatted())
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(
+                            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                .fill(isPositive ? AppColors.profit : AppColors.loss)
+                        )
                 }
             }
         }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(AppColors.cardSurface)
+        )
     }
 
-    // MARK: - Chart Section
+    // MARK: - 图表
 
     private var chartSection: some View {
-        GlassCard(tint: .blue) {
-            VStack(alignment: .leading, spacing: 12) {
-                // Time range selector pills
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 6) {
-                        ForEach([TimeRange.week, .month, .threeMonths, .sixMonths, .year]) { range in
-                            Button {
-                                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                                    selectedTimeRange = range
-                                }
-                                Task { await loadChartData() }
-                            } label: {
-                                Text(range.displayName)
-                                    .font(.caption.weight(.semibold))
-                                    .foregroundStyle(selectedTimeRange == range ? .white : .secondary)
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 6)
-                                    .background {
-                                        if selectedTimeRange == range {
-                                            Capsule()
-                                                .fill(Color.blue)
-                                        } else {
-                                            Capsule()
-                                                .fill(.ultraThinMaterial)
-                                        }
-                                    }
-                            }
-                            .buttonStyle(.plain)
-                        }
+        VStack(spacing: 12) {
+            // 时间范围选择
+            HStack(spacing: 8) {
+                ForEach([TimeRange.week, .month, .threeMonths, .sixMonths, .year], id: \.self) { range in
+                    Button {
+                        selectedTimeRange = range
+                        Task { await loadChartData() }
+                    } label: {
+                        Text(range.displayName)
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(selectedTimeRange == range ? .white : AppColors.textSecondary)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(
+                                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                    .fill(selectedTimeRange == range ? AppColors.profit : AppColors.elevatedSurface)
+                            )
                     }
-                }
-
-                if isLoadingChart {
-                    LoadingShimmer(height: 200)
-                } else if !chartData.isEmpty {
-                    interactiveChart
-                        .frame(height: 200)
-                } else {
-                    VStack(spacing: 8) {
-                        Image(systemName: "chart.line.uptrend.xyaxis")
-                            .font(.title2)
-                            .foregroundStyle(.secondary.opacity(0.5))
-                        Text("No chart data")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                    }
-                    .frame(height: 200)
-                    .frame(maxWidth: .infinity)
                 }
             }
+
+            // 图表
+            if isLoadingChart {
+                ProgressView()
+                    .frame(height: 180)
+                    .frame(maxWidth: .infinity)
+            } else if !chartData.isEmpty {
+                priceChart
+                    .frame(height: 180)
+            } else {
+                VStack(spacing: 8) {
+                    Image(systemName: "chart.line.uptrend.xyaxis")
+                        .font(.system(size: 32))
+                        .foregroundStyle(AppColors.textTertiary)
+                    Text("暂无图表数据")
+                        .font(.system(size: 14))
+                        .foregroundStyle(AppColors.textSecondary)
+                }
+                .frame(height: 180)
+                .frame(maxWidth: .infinity)
+            }
         }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(AppColors.cardSurface)
+        )
     }
 
-    private var interactiveChart: some View {
-        let isPositive = (chartData.last?.close ?? 0) >= (chartData.first?.close ?? 0)
-        let lineColor: Color = isPositive ? .green : .red
+    private var priceChart: some View {
+        let chartIsPositive = (chartData.last?.close ?? 0) >= (chartData.first?.close ?? 0)
+        let lineColor = chartIsPositive ? AppColors.profit : AppColors.loss
 
         return Chart(chartData, id: \.date) { point in
             LineMark(
-                x: .value("Date", point.date),
-                y: .value("Price", point.close)
+                x: .value("日期", point.date),
+                y: .value("价格", point.close)
             )
             .foregroundStyle(lineColor)
             .lineStyle(StrokeStyle(lineWidth: 2))
             .interpolationMethod(.monotone)
 
             AreaMark(
-                x: .value("Date", point.date),
-                y: .value("Price", point.close)
+                x: .value("日期", point.date),
+                y: .value("价格", point.close)
             )
             .foregroundStyle(
                 LinearGradient(
-                    colors: [lineColor.opacity(0.2), .clear],
+                    colors: [lineColor.opacity(0.3), lineColor.opacity(0.05)],
                     startPoint: .top,
                     endPoint: .bottom
                 )
@@ -213,191 +234,387 @@ struct HoldingDetailView: View {
                 AxisValueLabel {
                     if let price = value.as(Double.self) {
                         Text(price.formatted(.number.precision(.fractionLength(0))))
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
+                            .font(.system(size: 10, design: .monospaced))
+                            .foregroundStyle(AppColors.textTertiary)
                     }
                 }
             }
         }
     }
 
-    // MARK: - Tabbed Sections
+    // MARK: - 分段选择器
 
-    private var tabbedSections: some View {
-        VStack(spacing: 12) {
-            // Tab picker
-            Picker("Section", selection: $selectedTab) {
-                Text("Summary").tag(0)
-                Text("Position").tag(1)
-                Text("Transactions").tag(2)
-            }
-            .pickerStyle(.segmented)
-
-            switch selectedTab {
-            case 0:
-                quoteStatsGrid
-            case 1:
-                positionCard
-            case 2:
-                transactionCard
-            default:
-                EmptyView()
-            }
-        }
-    }
-
-    // MARK: - Quote Stats Grid
-
-    private var quoteStatsGrid: some View {
-        GlassCard(tint: .indigo) {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack(spacing: 6) {
-                    Image(systemName: "info.circle.fill")
-                        .font(.caption)
-                        .foregroundStyle(.indigo)
-                    Text("Quote Details")
-                        .font(AppFonts.cardTitle)
-                }
-
-                let columns = [GridItem(.flexible()), GridItem(.flexible())]
-                LazyVGrid(columns: columns, spacing: 10) {
-                    QuoteStatCell(label: "Open", value: (quote?.regularMarketOpen ?? 0).currencyFormatted(code: holding.currency))
-                    QuoteStatCell(label: "Prev Close", value: (quote?.regularMarketPreviousClose ?? 0).currencyFormatted(code: holding.currency))
-                    QuoteStatCell(label: "Day High", value: (quote?.regularMarketDayHigh ?? 0).currencyFormatted(code: holding.currency))
-                    QuoteStatCell(label: "Day Low", value: (quote?.regularMarketDayLow ?? 0).currencyFormatted(code: holding.currency))
-                    QuoteStatCell(label: "Volume", value: (quote?.regularMarketVolume ?? 0).compactFormatted())
-                    QuoteStatCell(label: "Market Cap", value: (quote?.marketCap ?? 0).compactFormatted())
-                    QuoteStatCell(label: "P/E", value: String(format: "%.2f", quote?.trailingPE ?? 0))
-                    QuoteStatCell(label: "52W High", value: (quote?.fiftyTwoWeekHigh ?? 0).currencyFormatted(code: holding.currency))
-                    QuoteStatCell(label: "52W Low", value: (quote?.fiftyTwoWeekLow ?? 0).currencyFormatted(code: holding.currency))
-                    QuoteStatCell(label: "Div Yield", value: String(format: "%.2f%%", (quote?.dividendYield ?? 0) * 100))
-                }
-            }
-        }
-    }
-
-    // MARK: - Position Card
-
-    private var positionCard: some View {
-        GlassCard(tint: .purple) {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack(spacing: 6) {
-                    Image(systemName: "briefcase.fill")
-                        .font(.caption)
-                        .foregroundStyle(.purple)
-                    Text("Position")
-                        .font(AppFonts.cardTitle)
-                }
-
-                GlassInfoRow(icon: "number", iconColor: .blue, label: "Quantity", value: holding.totalQuantity.formattedQuantity)
-                GlassInfoRow(icon: "yensign.circle", iconColor: .orange, label: "Avg Cost", value: holding.averageCost.currencyFormatted(code: holding.currency))
-                GlassInfoRow(icon: "banknote", iconColor: .teal, label: "Total Cost", value: holding.totalCost.currencyFormatted(code: holding.currency))
-                GlassInfoRow(icon: "chart.bar.fill", iconColor: .indigo, label: "Market Value", value: (currentPrice * holding.totalQuantity).currencyFormatted(code: holding.currency))
-
-                Rectangle()
-                    .fill(
-                        LinearGradient(
-                            colors: [.clear, .secondary.opacity(0.15), .clear],
-                            startPoint: .leading,
-                            endPoint: .trailing
+    private var tabSelector: some View {
+        HStack(spacing: 0) {
+            ForEach(["概览", "持仓", "交易记录"].indices, id: \.self) { index in
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        selectedTab = index
+                    }
+                } label: {
+                    Text(["概览", "持仓", "交易记录"][index])
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(selectedTab == index ? AppColors.textPrimary : AppColors.textSecondary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(
+                            selectedTab == index ?
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .fill(AppColors.elevatedSurface) : nil
                         )
-                    )
-                    .frame(height: 0.5)
+                }
+            }
+        }
+        .padding(4)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(AppColors.cardSurface)
+        )
+    }
 
-                let unrealized = (currentPrice - holding.averageCost) * holding.totalQuantity
-                let unrealizedPct = holding.averageCost > 0
-                    ? ((currentPrice - holding.averageCost) / holding.averageCost) * 100
-                    : 0
+    // MARK: - 概览
 
+    private var summarySection: some View {
+        VStack(spacing: 12) {
+            // 基本数据
+            statsGrid([
+                ("开盘", formatPrice(displayQuote?.regularMarketOpen)),
+                ("昨收", formatPrice(displayQuote?.regularMarketPreviousClose)),
+                ("最高", formatPrice(displayQuote?.regularMarketDayHigh)),
+                ("最低", formatPrice(displayQuote?.regularMarketDayLow)),
+            ])
+
+            statsGrid([
+                ("成交量", formatVolume(displayQuote?.regularMarketVolume)),
+                ("市值", formatMarketCap(displayQuote?.marketCap)),
+                ("市盈率", formatPE(displayQuote?.trailingPE)),
+                ("股息率", formatDividend(displayQuote?.dividendYield)),
+            ])
+
+            statsGrid([
+                ("每股收益", formatEPS(displayQuote?.epsTrailingTwelveMonths)),
+                ("52周最高", formatPrice(displayQuote?.fiftyTwoWeekHigh)),
+            ])
+
+            statsGrid([
+                ("52周最低", formatPrice(displayQuote?.fiftyTwoWeekLow)),
+            ])
+        }
+    }
+
+    private func formatPrice(_ value: Double?) -> String {
+        guard let v = value, v > 0 else { return "-" }
+        return v.currencyFormatted(code: holding.currency)
+    }
+
+    private func formatVolume(_ value: Double?) -> String {
+        guard let v = value, v > 0 else { return "-" }
+        return v.compactFormatted()
+    }
+
+    private func formatMarketCap(_ value: Double?) -> String {
+        guard let v = value, v > 0 else { return "-" }
+        return v.compactFormatted()
+    }
+
+    private func formatEPS(_ value: Double?) -> String {
+        guard let v = value else { return "-" }
+        return String(format: "%.2f", v)
+    }
+
+    private func statsGrid(_ items: [(String, String)]) -> some View {
+        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 1) {
+            ForEach(items, id: \.0) { item in
                 HStack {
-                    HStack(spacing: 4) {
-                        Image(systemName: unrealized >= 0 ? "arrow.up.right.circle.fill" : "arrow.down.right.circle.fill")
-                            .font(.caption)
-                            .foregroundStyle(unrealized >= 0 ? .green : .red)
-                        Text("Unrealized P&L")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                    Text(item.0)
+                        .font(.system(size: 13))
+                        .foregroundStyle(AppColors.textSecondary)
+                    Spacer()
+                    Text(item.1)
+                        .font(.system(size: 14, weight: .medium, design: .monospaced))
+                        .foregroundStyle(AppColors.textPrimary)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+            }
+        }
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(AppColors.cardSurface)
+        )
+    }
+
+    private func formatPE(_ pe: Double?) -> String {
+        guard let pe = pe, pe > 0 else { return "-" }
+        return String(format: "%.2f", pe)
+    }
+
+    private func formatDividend(_ yield: Double?) -> String {
+        guard let yield = yield, yield > 0 else { return "-" }
+        return String(format: "%.2f%%", yield * 100)
+    }
+
+    // MARK: - 持仓
+
+    private var positionSection: some View {
+        VStack(spacing: 12) {
+            // 持仓信息
+            VStack(spacing: 0) {
+                positionRow("持有数量", holding.totalQuantity.formattedQuantity)
+                Divider().background(AppColors.dividerColor)
+                positionRow("平均成本", holding.averageCost.currencyFormatted(code: holding.currency))
+                Divider().background(AppColors.dividerColor)
+                positionRow("总成本", holding.totalCost.currencyFormatted(code: holding.currency))
+                Divider().background(AppColors.dividerColor)
+                positionRow("持仓价值", (currentPrice * holding.totalQuantity).currencyFormatted(code: holding.currency))
+            }
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(AppColors.cardSurface)
+            )
+
+            // 盈亏卡片 - 未实现
+            if holding.totalQuantity > 0 {
+                pnlCard(
+                    title: "未实现盈亏",
+                    amount: unrealizedPnL,
+                    percent: unrealizedPnLPercent
+                )
+            }
+
+            // 盈亏卡片 - 已实现（如果有卖出交易）
+            if holding.realizedPnL != 0 {
+                pnlCard(
+                    title: "已实现盈亏",
+                    amount: holding.realizedPnL,
+                    percent: nil
+                )
+            }
+
+            // 股息
+            if holding.totalDividends > 0 {
+                HStack {
+                    HStack(spacing: 6) {
+                        Image(systemName: "gift.fill")
+                            .font(.system(size: 12))
+                            .foregroundStyle(AppColors.profit)
+                        Text("累计股息")
+                            .font(.system(size: 13))
+                            .foregroundStyle(AppColors.textSecondary)
                     }
                     Spacer()
-                    HStack(spacing: 8) {
-                        PnLText(unrealized, currencyCode: holding.currency, style: .small)
-                        PnLPercentText(unrealizedPct, style: .caption)
-                    }
+                    Text(holding.totalDividends.currencyFormatted(code: holding.currency))
+                        .font(.system(size: 15, weight: .medium, design: .monospaced))
+                        .foregroundStyle(AppColors.profit)
                 }
+                .padding(16)
+                .background(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(AppColors.cardSurface)
+                )
+            }
 
+            // 总收益汇总（如果有多种收益）
+            if hasMixedPnL {
+                totalPnLSummary
+            }
+        }
+    }
+
+    private func positionRow(_ label: String, _ value: String) -> some View {
+        HStack {
+            Text(label)
+                .font(.system(size: 14))
+                .foregroundStyle(AppColors.textSecondary)
+            Spacer()
+            Text(value)
+                .font(.system(size: 15, weight: .medium, design: .monospaced))
+                .foregroundStyle(AppColors.textPrimary)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+    }
+
+    private func pnlCard(title: String, amount: Double, percent: Double?) -> some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.system(size: 13))
+                    .foregroundStyle(AppColors.textSecondary)
+
+                Text(amount.currencyFormatted(code: holding.currency, showSign: true))
+                    .font(.system(size: 20, weight: .bold, design: .monospaced))
+                    .foregroundStyle(amount >= 0 ? AppColors.profit : AppColors.loss)
+            }
+
+            Spacer()
+
+            if let percent = percent {
+                Text(percent.percentFormatted())
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .fill(amount >= 0 ? AppColors.profit : AppColors.loss)
+                    )
+            }
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(AppColors.cardSurface)
+        )
+    }
+
+    private var hasMixedPnL: Bool {
+        let hasUnrealized = holding.totalQuantity > 0 && unrealizedPnL != 0
+        let hasRealized = holding.realizedPnL != 0
+        let hasDividends = holding.totalDividends > 0
+        // 至少有两种收益类型时显示汇总
+        return [hasUnrealized, hasRealized, hasDividends].filter { $0 }.count >= 2
+    }
+
+    private var totalPnL: Double {
+        var total = holding.realizedPnL + holding.totalDividends
+        if holding.totalQuantity > 0 {
+            total += unrealizedPnL
+        }
+        return total
+    }
+
+    private var totalPnLSummary: some View {
+        VStack(spacing: 8) {
+            HStack {
+                Text("总收益")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(AppColors.textPrimary)
+                Spacer()
+                Text(totalPnL.currencyFormatted(code: holding.currency, showSign: true))
+                    .font(.system(size: 18, weight: .bold, design: .monospaced))
+                    .foregroundStyle(totalPnL >= 0 ? AppColors.profit : AppColors.loss)
+            }
+
+            Divider().background(AppColors.dividerColor)
+
+            // 收益明细
+            VStack(spacing: 6) {
+                if holding.totalQuantity > 0 && unrealizedPnL != 0 {
+                    summaryDetailRow("未实现", unrealizedPnL)
+                }
+                if holding.realizedPnL != 0 {
+                    summaryDetailRow("已实现", holding.realizedPnL)
+                }
                 if holding.totalDividends > 0 {
-                    GlassInfoRow(icon: "gift.fill", iconColor: .orange, label: "Total Dividends", value: holding.totalDividends.currencyFormatted(code: holding.currency))
+                    summaryDetailRow("股息", holding.totalDividends)
                 }
+            }
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(AppColors.cardSurface)
+        )
+    }
+
+    private func summaryDetailRow(_ label: String, _ amount: Double) -> some View {
+        HStack {
+            Text(label)
+                .font(.system(size: 13))
+                .foregroundStyle(AppColors.textTertiary)
+            Spacer()
+            Text(amount.currencyFormatted(code: holding.currency, showSign: true))
+                .font(.system(size: 13, design: .monospaced))
+                .foregroundStyle(amount >= 0 ? AppColors.profit.opacity(0.8) : AppColors.loss.opacity(0.8))
+        }
+    }
+
+    // MARK: - 交易记录
+
+    private var transactionsSection: some View {
+        let sorted = holding.transactions.sorted { $0.date > $1.date }
+
+        return VStack(spacing: 0) {
+            if sorted.isEmpty {
+                VStack(spacing: 12) {
+                    Image(systemName: "tray")
+                        .font(.system(size: 32))
+                        .foregroundStyle(AppColors.textTertiary)
+                    Text("暂无交易记录")
+                        .font(.system(size: 15))
+                        .foregroundStyle(AppColors.textSecondary)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 40)
+                .background(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(AppColors.cardSurface)
+                )
+            } else {
+                ForEach(Array(sorted.enumerated()), id: \.element.id) { index, tx in
+                    transactionRow(tx)
+
+                    if index < sorted.count - 1 {
+                        Divider()
+                            .background(AppColors.dividerColor)
+                            .padding(.leading, 56)
+                    }
+                }
+                .background(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(AppColors.cardSurface)
+                )
             }
         }
     }
 
-    // MARK: - Transaction Card
+    private func transactionRow(_ tx: Transaction) -> some View {
+        HStack(spacing: 12) {
+            // 类型图标
+            ZStack {
+                Circle()
+                    .fill(tx.transactionType == .buy ? AppColors.profit.opacity(0.15) :
+                            tx.transactionType == .sell ? AppColors.loss.opacity(0.15) :
+                            AppColors.textTertiary.opacity(0.15))
+                    .frame(width: 36, height: 36)
 
-    private var transactionCard: some View {
-        GlassCard(tint: .orange) {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack(spacing: 6) {
-                    Image(systemName: "clock.arrow.circlepath")
-                        .font(.caption)
-                        .foregroundStyle(.orange)
-                    Text("Transactions")
-                        .font(AppFonts.cardTitle)
-                }
+                Image(systemName: tx.transactionType.iconName)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(tx.transactionType == .buy ? AppColors.profit :
+                                        tx.transactionType == .sell ? AppColors.loss :
+                                        AppColors.textSecondary)
+            }
 
-                let sorted = holding.transactions.sorted { $0.date > $1.date }
-                if sorted.isEmpty {
-                    VStack(spacing: 8) {
-                        Image(systemName: "tray")
-                            .font(.title2)
-                            .foregroundStyle(.secondary.opacity(0.5))
-                        Text("No transactions")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                } else {
-                    ForEach(Array(sorted.enumerated()), id: \.element.id) { index, tx in
-                        HStack(spacing: 10) {
-                            ZStack {
-                                Circle()
-                                    .fill(tx.transactionType.color.opacity(0.12))
-                                    .frame(width: 30, height: 30)
-                                Image(systemName: tx.transactionType.iconName)
-                                    .font(.system(size: 12, weight: .semibold))
-                                    .foregroundStyle(tx.transactionType.color)
-                            }
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(tx.transactionType.displayName)
-                                    .font(.subheadline.weight(.medium))
-                                Text(tx.date.shortDateString)
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            VStack(alignment: .trailing, spacing: 2) {
-                                Text("×\(tx.quantity.formattedQuantity) @ \(tx.price.currencyFormatted(code: tx.currency))")
-                                    .font(.caption.monospacedDigit())
-                                if !tx.note.isEmpty {
-                                    Text(tx.note)
-                                        .font(.caption2)
-                                        .foregroundStyle(.secondary)
-                                }
-                            }
-                        }
-                        .staggeredAppearance(index: index)
+            // 信息
+            VStack(alignment: .leading, spacing: 2) {
+                Text(tx.transactionType.displayName)
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(AppColors.textPrimary)
 
-                        if index < sorted.count - 1 {
-                            Divider().opacity(0.3)
-                        }
-                    }
-                }
+                Text(tx.date.formatted(date: .abbreviated, time: .omitted))
+                    .font(.system(size: 12))
+                    .foregroundStyle(AppColors.textTertiary)
+            }
+
+            Spacer()
+
+            // 数量和价格
+            VStack(alignment: .trailing, spacing: 2) {
+                Text("\(tx.quantity.formattedQuantity) 股")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(AppColors.textPrimary)
+
+                Text("@ \(tx.price.currencyFormatted(code: tx.currency))")
+                    .font(.system(size: 12, design: .monospaced))
+                    .foregroundStyle(AppColors.textSecondary)
             }
         }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
     }
 
-    // MARK: - Data
+    // MARK: - 数据加载
 
     private func loadChartData() async {
         isLoadingChart = true
@@ -416,65 +633,17 @@ struct HoldingDetailView: View {
         do {
             chartData = try await MarketDataService.shared.fetchChartData(symbol: holding.symbol, range: range)
         } catch {
-            // Handle error
-        }
-    }
-}
-
-// MARK: - Quote Stat Cell
-
-private struct QuoteStatCell: View {
-    let label: String
-    let value: String
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(label)
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-            Text(value)
-                .font(.system(.caption, design: .rounded, weight: .medium))
-                .monospacedDigit()
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-        }
-        .padding(8)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(.secondary.opacity(0.06))
-        }
-    }
-}
-
-// MARK: - Glass Info Row
-
-private struct GlassInfoRow: View {
-    let icon: String
-    let iconColor: Color
-    let label: String
-    let value: String
-
-    var body: some View {
-        HStack(spacing: 8) {
-            Image(systemName: icon)
-                .font(.system(size: 11))
-                .foregroundStyle(iconColor)
-                .frame(width: 16)
-            Text(label)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-            Spacer()
-            Text(value)
-                .font(.system(.subheadline, design: .rounded, weight: .medium))
-                .monospacedDigit()
+            chartData = []
         }
     }
 }
 
 #Preview {
-    HoldingDetailView(
-        holding: Holding(symbol: "AAPL", name: "Apple Inc.", market: Market.US.rawValue),
-        quote: nil
-    )
+    NavigationStack {
+        HoldingDetailView(
+            holding: Holding(symbol: "AAPL", name: "Apple Inc.", market: Market.US.rawValue),
+            quote: nil
+        )
+    }
+    .preferredColorScheme(.dark)
 }

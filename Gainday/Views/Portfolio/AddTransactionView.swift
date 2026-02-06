@@ -1,6 +1,7 @@
 import SwiftUI
 import SwiftData
 
+/// 添加交易记录 - 统一设计语言
 struct AddTransactionView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
@@ -12,260 +13,68 @@ struct AddTransactionView: View {
     @State private var symbolText = ""
     @State private var holdingName = ""
     @State private var quantity = ""
-    @State private var price = ""  // 股价 or 基準価額
-    @State private var investmentAmount = ""  // 定額投資金額
+    @State private var price = ""
+    @State private var investmentAmount = ""
     @State private var fee = ""
     @State private var date = Date()
     @State private var note = ""
     @State private var selectedMarket: Market = .JP
     @State private var selectedAssetType: AssetType = .stock
     @State private var showSymbolSearch = false
-    @State private var existingHolding: Holding?
     @State private var isLoadingNAV = false
 
-    // 投資モード: 定額 (fixed amount) vs 定量 (fixed quantity)
     enum InvestmentMode: String, CaseIterable {
-        case fixedAmount = "定額"   // 输入金额，自动计算口数
-        case fixedQuantity = "定量" // 输入数量和价格
+        case fixedAmount = "定额"
+        case fixedQuantity = "定量"
     }
     @State private var investmentMode: InvestmentMode = .fixedQuantity
 
-    // 是否为投資信託（自动切换为定額模式）
     private var isMutualFund: Bool {
         selectedMarket == .JP_FUND
     }
 
     var body: some View {
         NavigationStack {
-            Form {
-                // Account selection
-                Section {
-                    Picker("选择账户", selection: $selectedPortfolio) {
-                        Text("请选择").tag(nil as Portfolio?)
-                        ForEach(portfolios) { portfolio in
-                            HStack {
-                                Circle()
-                                    .fill(portfolio.tagColor)
-                                    .frame(width: 8, height: 8)
-                                Text(portfolio.name)
-                            }
-                            .tag(portfolio as Portfolio?)
-                        }
+            ScrollView {
+                VStack(spacing: 24) {
+                    // 账户选择
+                    accountSection
+
+                    // 交易类型
+                    transactionTypeSection
+
+                    // 标的信息
+                    symbolSection
+
+                    // 交易详情
+                    if isMutualFund {
+                        mutualFundSection
+                    } else {
+                        stockTransactionSection
                     }
+
+                    // 汇总预览
+                    summarySection
+
+                    // 验证提示
+                    if let message = validationMessage {
+                        validationBanner(message)
+                    }
+
+                    Spacer(minLength: 100)
                 }
-
-                // Transaction type
-                Section("交易类型") {
-                    Picker("类型", selection: $transactionType) {
-                        ForEach(TransactionType.allCases) { type in
-                            Label(type.displayName, systemImage: type.iconName)
-                                .tag(type)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                }
-
-                // Symbol
-                Section("标的") {
-                    HStack {
-                        TextField(isMutualFund ? "基金代码 (如 0331418A)" : "代码 (如 7203.T)", text: $symbolText)
-                            #if os(iOS)
-                            .textInputAutocapitalization(.characters)
-                            #endif
-                        Button {
-                            showSymbolSearch = true
-                        } label: {
-                            Image(systemName: "magnifyingglass")
-                        }
-                    }
-
-                    TextField("名称", text: $holdingName)
-
-                    Picker("市场", selection: $selectedMarket) {
-                        ForEach(Market.allCases) { market in
-                            Text("\(market.flag) \(market.displayName)").tag(market)
-                        }
-                    }
-
-                    if !isMutualFund {
-                        Picker("资产类型", selection: $selectedAssetType) {
-                            ForEach(AssetType.allCases) { type in
-                                Label(type.displayName, systemImage: type.iconName).tag(type)
-                            }
-                        }
-                    }
-                }
-
-                // Investment mode (only show for mutual funds)
-                if isMutualFund {
-                    Section {
-                        Picker("投資方式", selection: $investmentMode) {
-                            ForEach(InvestmentMode.allCases, id: \.self) { mode in
-                                Text(mode.rawValue).tag(mode)
-                            }
-                        }
-                        .pickerStyle(.segmented)
-                    } header: {
-                        Label("投資方式", systemImage: "yensign.circle")
-                    } footer: {
-                        Text(investmentMode == .fixedAmount
-                             ? "定額: 输入投资金额，系统根据基準価額自动计算口数"
-                             : "定量: 手动输入口数和基準価額")
-                            .font(.caption2)
-                    }
-                }
-
-                // Transaction details
-                if isMutualFund && investmentMode == .fixedAmount {
-                    // 定額投資模式 (投信专用)
-                    Section("定額投資") {
-                        HStack {
-                            Text("投資金額")
-                            Spacer()
-                            TextField("10000", text: $investmentAmount)
-                                #if os(iOS)
-                                .keyboardType(.numberPad)
-                                #endif
-                                .multilineTextAlignment(.trailing)
-                                .frame(width: 120)
-                            Text("円")
-                                .foregroundStyle(.secondary)
-                        }
-
-                        HStack {
-                            Text("基準価額")
-                            Spacer()
-                            if isLoadingNAV {
-                                ProgressView()
-                                    .scaleEffect(0.8)
-                            }
-                            TextField("0", text: $price)
-                                #if os(iOS)
-                                .keyboardType(.decimalPad)
-                                #endif
-                                .multilineTextAlignment(.trailing)
-                                .frame(width: 120)
-                            Text("円")
-                                .foregroundStyle(.secondary)
-                        }
-
-                        // 自动获取基準価額按钮
-                        if !symbolText.isEmpty {
-                            Button {
-                                Task { await fetchCurrentNAV() }
-                            } label: {
-                                HStack {
-                                    Image(systemName: "arrow.clockwise")
-                                    Text("获取最新基準価額")
-                                }
-                                .font(.subheadline)
-                            }
-                            .disabled(isLoadingNAV)
-                        }
-
-                        DatePicker("約定日", selection: $date, displayedComponents: .date)
-
-                        TextField("备注 (可选)", text: $note)
-                    }
-
-                    // 计算结果
-                    if let amount = Double(investmentAmount), let nav = Double(price), nav > 0 {
-                        Section("計算結果") {
-                            let units = amount / nav
-                            HStack {
-                                Text("取得口数")
-                                Spacer()
-                                Text(String(format: "%.4f", units))
-                                    .font(.system(.body, design: .monospaced, weight: .semibold))
-                                    .foregroundStyle(.blue)
-                                Text("口")
-                                    .foregroundStyle(.secondary)
-                            }
-                            HStack {
-                                Text("投資金額")
-                                Spacer()
-                                Text(amount.currencyFormatted(code: "JPY"))
-                                    .font(.headline.monospacedDigit())
-                            }
-                        }
-                    }
-                } else {
-                    // 普通股票/定量模式
-                    Section("交易详情") {
-                        HStack {
-                            Text(isMutualFund ? "口数" : "数量")
-                            TextField("0", text: $quantity)
-                                #if os(iOS)
-                                .keyboardType(.decimalPad)
-                                #endif
-                                .multilineTextAlignment(.trailing)
-                        }
-
-                        HStack {
-                            Text(isMutualFund ? "基準価額" : "价格")
-                            TextField("0", text: $price)
-                                #if os(iOS)
-                                .keyboardType(.decimalPad)
-                                #endif
-                                .multilineTextAlignment(.trailing)
-                        }
-
-                        HStack {
-                            Text("手续费")
-                            TextField("0", text: $fee)
-                                #if os(iOS)
-                                .keyboardType(.decimalPad)
-                                #endif
-                                .multilineTextAlignment(.trailing)
-                        }
-
-                        DatePicker("日期", selection: $date, displayedComponents: .date)
-
-                        TextField("备注 (可选)", text: $note)
-                    }
-
-                    // Summary for regular mode
-                    if let qty = Double(quantity), let prc = Double(price), qty > 0 && prc > 0 {
-                        Section("汇总") {
-                            let total = qty * prc + (Double(fee) ?? 0)
-                            HStack {
-                                Text("总金额")
-                                Spacer()
-                                Text(total.currencyFormatted(code: selectedMarket.currency))
-                                    .font(.headline.monospacedDigit())
-                            }
-                        }
-                    }
-                }
-
-                // Validation message
-                if let message = validationMessage {
-                    Section {
-                        HStack {
-                            Image(systemName: "exclamationmark.triangle.fill")
-                                .foregroundStyle(.orange)
-                            Text(message)
-                                .font(.caption)
-                                .foregroundStyle(.orange)
-                        }
-                    }
-                }
+                .padding(16)
+            }
+            .background(AppColors.background)
+            .safeAreaInset(edge: .bottom) {
+                saveButtonBar
             }
             .navigationTitle("添加交易")
-            #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
-            .scrollContentBackground(.hidden)
-            .background(AppColors.background)
-            #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("取消") { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("保存") {
-                        saveTransaction()
-                    }
-                    .disabled(!isValid)
+                        .foregroundStyle(AppColors.textPrimary)
                 }
             }
             .sheet(isPresented: $showSymbolSearch) {
@@ -273,14 +82,12 @@ struct AddTransactionView: View {
                     symbolText = symbol
                     holdingName = name
                     selectedMarket = market
-                    // 自动获取基準価額
                     if market == .JP_FUND {
                         Task { await fetchCurrentNAV() }
                     }
                 }
             }
             .onChange(of: selectedMarket) { _, newMarket in
-                // 投信自动切换为定額模式和fund类型
                 if newMarket == .JP_FUND {
                     investmentMode = .fixedAmount
                     selectedAssetType = .fund
@@ -296,6 +103,473 @@ struct AddTransactionView: View {
         }
     }
 
+    // MARK: - 账户选择
+
+    private var accountSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            sectionTitle("选择账户")
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 12) {
+                    ForEach(portfolios) { portfolio in
+                        Button {
+                            selectedPortfolio = portfolio
+                        } label: {
+                            HStack(spacing: 8) {
+                                Circle()
+                                    .fill(portfolio.tagColor)
+                                    .frame(width: 8, height: 8)
+                                Text(portfolio.name)
+                                    .font(.system(size: 15, weight: .medium))
+                            }
+                            .foregroundStyle(selectedPortfolio?.id == portfolio.id ? .white : AppColors.textPrimary)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 12)
+                            .background(
+                                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                    .fill(selectedPortfolio?.id == portfolio.id ? AppColors.profit : AppColors.cardSurface)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: - 交易类型
+
+    private var transactionTypeSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            sectionTitle("交易类型")
+
+            HStack(spacing: 0) {
+                ForEach(TransactionType.allCases) { type in
+                    Button {
+                        transactionType = type
+                    } label: {
+                        VStack(spacing: 8) {
+                            Image(systemName: type.iconName)
+                                .font(.system(size: 20))
+                            Text(type.displayName)
+                                .font(.system(size: 13, weight: .medium))
+                        }
+                        .foregroundStyle(transactionType == type ? .white : AppColors.textSecondary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                        .background(
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .fill(transactionType == type ? typeColor(type) : Color.clear)
+                        )
+                    }
+                }
+            }
+            .padding(4)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(AppColors.cardSurface)
+            )
+        }
+    }
+
+    private func typeColor(_ type: TransactionType) -> Color {
+        switch type {
+        case .buy: return AppColors.profit
+        case .sell: return AppColors.loss
+        case .dividend: return .blue
+        }
+    }
+
+    // MARK: - 标的信息
+
+    private var symbolSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            sectionTitle("标的信息")
+
+            VStack(spacing: 16) {
+                // 代码输入
+                HStack(spacing: 12) {
+                    FormField(
+                        label: "代码",
+                        placeholder: isMutualFund ? "如 0331418A" : "如 7203.T",
+                        text: $symbolText,
+                        keyboardType: .default,
+                        capitalization: true
+                    )
+
+                    Button {
+                        showSymbolSearch = true
+                    } label: {
+                        Image(systemName: "magnifyingglass")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundStyle(.white)
+                            .frame(width: 48, height: 48)
+                            .background(
+                                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                    .fill(AppColors.profit)
+                            )
+                    }
+                }
+
+                // 名称输入
+                FormField(
+                    label: "名称",
+                    placeholder: "标的名称",
+                    text: $holdingName
+                )
+
+                // 市场选择
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("市场")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(AppColors.textSecondary)
+
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            ForEach(Market.allCases) { market in
+                                Button {
+                                    selectedMarket = market
+                                } label: {
+                                    Text("\(market.flag) \(market.displayName)")
+                                        .font(.system(size: 14, weight: .medium))
+                                        .foregroundStyle(selectedMarket == market ? .white : AppColors.textSecondary)
+                                        .padding(.horizontal, 14)
+                                        .padding(.vertical, 10)
+                                        .background(
+                                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                                .fill(selectedMarket == market ? AppColors.profit : AppColors.elevatedSurface)
+                                        )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // 资产类型（非投信）
+                if !isMutualFund {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("资产类型")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(AppColors.textSecondary)
+
+                        HStack(spacing: 8) {
+                            ForEach(AssetType.allCases) { type in
+                                Button {
+                                    selectedAssetType = type
+                                } label: {
+                                    HStack(spacing: 6) {
+                                        Image(systemName: type.iconName)
+                                            .font(.system(size: 14))
+                                        Text(type.displayName)
+                                            .font(.system(size: 14, weight: .medium))
+                                    }
+                                    .foregroundStyle(selectedAssetType == type ? .white : AppColors.textSecondary)
+                                    .padding(.horizontal, 14)
+                                    .padding(.vertical, 10)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                            .fill(selectedAssetType == type ? AppColors.profit : AppColors.elevatedSurface)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            .padding(16)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(AppColors.cardSurface)
+            )
+        }
+    }
+
+    // MARK: - 投信交易
+
+    private var mutualFundSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            sectionTitle("投资详情")
+
+            VStack(spacing: 16) {
+                // 投资方式选择
+                HStack(spacing: 0) {
+                    ForEach(InvestmentMode.allCases, id: \.self) { mode in
+                        Button {
+                            investmentMode = mode
+                        } label: {
+                            Text(mode.rawValue)
+                                .font(.system(size: 15, weight: .medium))
+                                .foregroundStyle(investmentMode == mode ? .white : AppColors.textSecondary)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                        .fill(investmentMode == mode ? AppColors.profit : Color.clear)
+                                )
+                        }
+                    }
+                }
+                .padding(4)
+                .background(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(AppColors.elevatedSurface)
+                )
+
+                if investmentMode == .fixedAmount {
+                    // 定额模式
+                    FormField(
+                        label: "投资金额",
+                        placeholder: "10000",
+                        text: $investmentAmount,
+                        suffix: "円",
+                        keyboardType: .numberPad
+                    )
+
+                    HStack(spacing: 12) {
+                        FormField(
+                            label: "基准价格",
+                            placeholder: "0",
+                            text: $price,
+                            suffix: "円",
+                            keyboardType: .decimalPad
+                        )
+
+                        if !symbolText.isEmpty {
+                            Button {
+                                Task { await fetchCurrentNAV() }
+                            } label: {
+                                if isLoadingNAV {
+                                    ProgressView()
+                                        .tint(.white)
+                                } else {
+                                    Image(systemName: "arrow.clockwise")
+                                        .font(.system(size: 16, weight: .medium))
+                                }
+                            }
+                            .foregroundStyle(.white)
+                            .frame(width: 48, height: 48)
+                            .background(
+                                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                    .fill(AppColors.profit)
+                            )
+                            .disabled(isLoadingNAV)
+                        }
+                    }
+                } else {
+                    // 定量模式
+                    FormField(
+                        label: "口数",
+                        placeholder: "0",
+                        text: $quantity,
+                        suffix: "口",
+                        keyboardType: .decimalPad
+                    )
+
+                    FormField(
+                        label: "基准价格",
+                        placeholder: "0",
+                        text: $price,
+                        suffix: "円",
+                        keyboardType: .decimalPad
+                    )
+                }
+
+                datePickerField
+
+                FormField(
+                    label: "备注",
+                    placeholder: "可选",
+                    text: $note
+                )
+            }
+            .padding(16)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(AppColors.cardSurface)
+            )
+        }
+    }
+
+    // MARK: - 股票交易
+
+    private var stockTransactionSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            sectionTitle("交易详情")
+
+            VStack(spacing: 16) {
+                HStack(spacing: 12) {
+                    FormField(
+                        label: "数量",
+                        placeholder: "0",
+                        text: $quantity,
+                        suffix: "股",
+                        keyboardType: .decimalPad
+                    )
+
+                    FormField(
+                        label: "价格",
+                        placeholder: "0",
+                        text: $price,
+                        suffix: selectedMarket.currency,
+                        keyboardType: .decimalPad
+                    )
+                }
+
+                FormField(
+                    label: "手续费",
+                    placeholder: "0",
+                    text: $fee,
+                    suffix: selectedMarket.currency,
+                    keyboardType: .decimalPad
+                )
+
+                datePickerField
+
+                FormField(
+                    label: "备注",
+                    placeholder: "可选",
+                    text: $note
+                )
+            }
+            .padding(16)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(AppColors.cardSurface)
+            )
+        }
+    }
+
+    // MARK: - 汇总
+
+    @ViewBuilder
+    private var summarySection: some View {
+        if shouldShowSummary {
+            VStack(alignment: .leading, spacing: 12) {
+                sectionTitle("汇总")
+
+                VStack(spacing: 12) {
+                    if isMutualFund && investmentMode == .fixedAmount {
+                        if let amount = Double(investmentAmount), let nav = Double(price), nav > 0 {
+                            let units = amount / nav
+                            summaryRow("取得口数", value: String(format: "%.4f 口", units), highlight: true)
+                            summaryRow("投资金额", value: amount.currencyFormatted(code: "JPY"))
+                        }
+                    } else {
+                        if let qty = Double(quantity), let prc = Double(price), qty > 0, prc > 0 {
+                            let feeAmount = Double(fee) ?? 0
+                            let total = qty * prc + feeAmount
+                            summaryRow("数量", value: "\(qty.formatted()) \(isMutualFund ? "口" : "股")")
+                            summaryRow("价格", value: prc.currencyFormatted(code: selectedMarket.currency))
+                            if feeAmount > 0 {
+                                summaryRow("手续费", value: feeAmount.currencyFormatted(code: selectedMarket.currency))
+                            }
+                            Divider()
+                                .background(AppColors.dividerColor)
+                            summaryRow("总金额", value: total.currencyFormatted(code: selectedMarket.currency), highlight: true)
+                        }
+                    }
+                }
+                .padding(16)
+                .background(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(AppColors.cardSurface)
+                )
+            }
+        }
+    }
+
+    private var shouldShowSummary: Bool {
+        if isMutualFund && investmentMode == .fixedAmount {
+            return Double(investmentAmount) ?? 0 > 0 && Double(price) ?? 0 > 0
+        } else {
+            return Double(quantity) ?? 0 > 0 && Double(price) ?? 0 > 0
+        }
+    }
+
+    private func summaryRow(_ title: String, value: String, highlight: Bool = false) -> some View {
+        HStack {
+            Text(title)
+                .font(.system(size: 14))
+                .foregroundStyle(AppColors.textSecondary)
+            Spacer()
+            Text(value)
+                .font(.system(size: highlight ? 18 : 15, weight: highlight ? .bold : .semibold, design: .monospaced))
+                .foregroundStyle(highlight ? AppColors.profit : AppColors.textPrimary)
+        }
+    }
+
+    // MARK: - 验证提示
+
+    private func validationBanner(_ message: String) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 16))
+                .foregroundStyle(.orange)
+            Text(message)
+                .font(.system(size: 14))
+                .foregroundStyle(AppColors.textPrimary)
+            Spacer()
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(.orange.opacity(0.15))
+        )
+    }
+
+    // MARK: - 保存按钮
+
+    private var saveButtonBar: some View {
+        VStack(spacing: 0) {
+            Divider()
+                .background(AppColors.dividerColor)
+
+            Button {
+                saveTransaction()
+            } label: {
+                Text("保存交易")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(isValid ? AppColors.profit : AppColors.textTertiary)
+                    )
+            }
+            .disabled(!isValid)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+        }
+        .background(AppColors.cardSurface)
+    }
+
+    // MARK: - 辅助组件
+
+    private func sectionTitle(_ title: String) -> some View {
+        Text(title)
+            .font(.system(size: 15, weight: .semibold))
+            .foregroundStyle(AppColors.textPrimary)
+    }
+
+    private var datePickerField: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("日期")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(AppColors.textSecondary)
+
+            DatePicker("", selection: $date, displayedComponents: .date)
+                .datePickerStyle(.compact)
+                .labelsHidden()
+                .tint(AppColors.profit)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(AppColors.elevatedSurface)
+                )
+        }
+    }
+
     // MARK: - Validation
 
     private var isValid: Bool {
@@ -303,21 +577,16 @@ struct AddTransactionView: View {
               !symbolText.isEmpty,
               !holdingName.isEmpty else { return false }
 
-        // 日期不能是未来
         if date > Date() { return false }
 
         if isMutualFund && investmentMode == .fixedAmount {
-            // 定額模式: 需要投資金額和基準価額
             guard let amount = Double(investmentAmount), amount > 0,
                   let nav = Double(price), nav > 0 else { return false }
-            // 投資金額验证 (100 ~ 1亿日元)
             guard amount >= 100 && amount <= 100_000_000 else { return false }
             return true
         } else {
-            // 普通模式: 需要数量和价格
             guard let qty = Double(quantity), qty > 0,
                   let prc = Double(price), prc > 0 else { return false }
-            // 价格合理性验证 (0.0001 ~ 10亿)
             guard prc >= 0.0001 && prc <= 1_000_000_000 else { return false }
             return true
         }
@@ -329,8 +598,8 @@ struct AddTransactionView: View {
         }
         if isMutualFund && investmentMode == .fixedAmount {
             if let amount = Double(investmentAmount) {
-                if amount < 100 { return "投資金額至少100円" }
-                if amount > 100_000_000 { return "投資金額超出范围" }
+                if amount < 100 { return "投资金额至少100円" }
+                if amount > 100_000_000 { return "投资金额超出范围" }
             }
         } else {
             if let prc = Double(price) {
@@ -357,7 +626,7 @@ struct AddTransactionView: View {
                 }
             }
         } catch {
-            // 静默失败，用户可手动输入
+            // 静默失败
         }
     }
 
@@ -371,20 +640,17 @@ struct AddTransactionView: View {
         let feeAmount = Double(fee) ?? 0
 
         if isMutualFund && investmentMode == .fixedAmount {
-            // 定額模式: 计算口数
             guard let amount = Double(investmentAmount),
                   let nav = Double(price), nav > 0 else { return }
             finalQuantity = amount / nav
             finalPrice = nav
         } else {
-            // 普通模式
             guard let qty = Double(quantity),
                   let prc = Double(price) else { return }
             finalQuantity = qty
             finalPrice = prc
         }
 
-        // Find or create holding
         let holding: Holding
         if let existing = portfolio.holdings.first(where: { $0.symbol == symbolText }) {
             holding = existing
@@ -413,11 +679,65 @@ struct AddTransactionView: View {
 
         modelContext.insert(transaction)
 
+        // 通知日历视图刷新
+        NotificationCenter.default.post(name: .portfolioDataDidChange, object: nil)
+
+        #if os(iOS)
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
+        #endif
+
         dismiss()
+    }
+}
+
+// MARK: - 表单输入组件
+
+private struct FormField: View {
+    let label: String
+    let placeholder: String
+    @Binding var text: String
+    var suffix: String? = nil
+    var keyboardType: UIKeyboardType = .default
+    var capitalization: Bool = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(label)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(AppColors.textSecondary)
+
+            HStack(spacing: 8) {
+                TextField(
+                    "",
+                    text: $text,
+                    prompt: Text(placeholder)
+                        .foregroundStyle(AppColors.textTertiary)
+                )
+                .font(.system(size: 16))
+                .foregroundStyle(AppColors.textPrimary)
+                #if os(iOS)
+                .keyboardType(keyboardType)
+                .textInputAutocapitalization(capitalization ? .characters : .never)
+                #endif
+
+                if let suffix = suffix {
+                    Text(suffix)
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(AppColors.textTertiary)
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .background(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(AppColors.elevatedSurface)
+            )
+        }
     }
 }
 
 #Preview {
     AddTransactionView(portfolios: [])
         .modelContainer(for: Portfolio.self, inMemory: true)
+        .preferredColorScheme(.dark)
 }

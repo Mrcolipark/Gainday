@@ -1,105 +1,38 @@
 import SwiftUI
 
+/// 年度热力图 - 统一设计语言
 struct YearHeatmapView: View {
     let year: Int
     let snapshots: [Date: DailySnapshot]
 
-    @Environment(\.colorScheme) private var colorScheme
     @State private var tappedDate: Date?
     @State private var showTooltip = false
     @State private var animateGrid = false
 
-    // Larger cells for better visibility
     private let cellSize: CGFloat = 18
     private let cellSpacing: CGFloat = 3
     private let rows = Array(repeating: GridItem(.fixed(18), spacing: 3), count: 7)
     private let weekdayLabels = ["日", "一", "二", "三", "四", "五", "六"]
     private let monthLabels = ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"]
 
-    private var yearDays: [Date] {
-        let calendar = Calendar.current
-        let startOfYear = calendar.date(from: DateComponents(year: year, month: 1, day: 1))!
-        let endOfYear = calendar.date(from: DateComponents(year: year, month: 12, day: 31))!
-
-        var days: [Date] = []
-        var current = startOfYear
-        while current <= endOfYear {
-            days.append(current)
-            current = current.adding(days: 1)
-        }
-        return days
+    private var yearSnapshots: [DailySnapshot] {
+        snapshots.values.filter { $0.date.year == year }
     }
 
-    // Group days by week for month labels
-    private var weekStartDates: [Date] {
-        var weeks: [Date] = []
-        let calendar = Calendar.current
-        var current = yearDays.first ?? Date()
-
-        // Align to start of week
-        while calendar.component(.weekday, from: current) != 1 {
-            current = current.adding(days: -1)
-        }
-
-        let endOfYear = calendar.date(from: DateComponents(year: year, month: 12, day: 31))!
-        while current <= endOfYear {
-            weeks.append(current)
-            current = current.adding(days: 7)
-        }
-        return weeks
+    private var totalPnL: Double {
+        yearSnapshots.reduce(0) { $0 + $1.dailyPnL }
     }
 
     var body: some View {
-        VStack(spacing: 16) {
-            // Year header with stats
-            yearHeader
+        VStack(spacing: 20) {
+            // 年度标题卡片
+            yearHeaderCard
 
-            // Month labels row
-            monthLabelsRow
+            // 热力图卡片
+            heatmapCard
 
-            // Main heatmap grid
-            heatmapGrid
-
-            // Tooltip when tapped
-            if showTooltip, let date = tappedDate, let snap = snapshots[date.startOfDay] {
-                tooltipView(date: date, snapshot: snap)
-            }
-
-            // Color legend
-            colorLegend
-
-            // Divider
-            Rectangle()
-                .fill(
-                    LinearGradient(
-                        colors: [.clear, .secondary.opacity(0.15), .clear],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    )
-                )
-                .frame(height: 1)
-
-            // Year statistics
-            yearStatsGrid
-        }
-        .padding(16)
-        .background {
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(.ultraThinMaterial)
-                .overlay {
-                    RoundedRectangle(cornerRadius: 20, style: .continuous)
-                        .fill(
-                            LinearGradient(
-                                colors: [.teal.opacity(0.08), .clear],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                }
-                .overlay {
-                    RoundedRectangle(cornerRadius: 20, style: .continuous)
-                        .strokeBorder(.white.opacity(0.15), lineWidth: 0.5)
-                }
+            // 年度统计卡片
+            yearStatsCard
         }
         .onAppear {
             withAnimation(.easeOut(duration: 0.8)) {
@@ -108,167 +41,192 @@ struct YearHeatmapView: View {
         }
     }
 
-    // MARK: - Year Header
+    // MARK: - 年度标题卡片
 
-    private var yearHeader: some View {
+    private var yearHeaderCard: some View {
         HStack {
-            HStack(spacing: 8) {
+            HStack(spacing: 12) {
                 ZStack {
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .fill(
-                            LinearGradient(
-                                colors: [.teal.opacity(0.2), .teal.opacity(0.1)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .frame(width: 36, height: 36)
+                    Circle()
+                        .fill(AppColors.profit.opacity(0.15))
+                        .frame(width: 40, height: 40)
+
                     Image(systemName: "calendar.badge.clock")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(.teal)
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(AppColors.profit)
                 }
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text("\(String(year))年度")
-                        .font(.system(.title3, design: .default, weight: .bold))
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundStyle(AppColors.textPrimary)
+
                     Text("投资热力图")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .font(.system(size: 13))
+                        .foregroundStyle(AppColors.textSecondary)
                 }
             }
 
             Spacer()
 
-            // Year total P&L badge
-            let yearSnapshots = snapshots.values.filter { $0.date.year == year }
-            let totalPnL = yearSnapshots.reduce(0) { $0 + $1.dailyPnL }
             if !yearSnapshots.isEmpty {
                 VStack(alignment: .trailing, spacing: 2) {
                     Text("年度收益")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
+                        .font(.system(size: 11))
+                        .foregroundStyle(AppColors.textTertiary)
+
                     Text(totalPnL.compactFormatted(showSign: true))
-                        .font(.system(.subheadline, design: .rounded, weight: .bold))
+                        .font(.system(size: 16, weight: .bold, design: .rounded))
                         .foregroundStyle(totalPnL >= 0 ? AppColors.profit : AppColors.loss)
                 }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                .background {
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .background(
                     RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .fill((totalPnL >= 0 ? Color.green : Color.red).opacity(0.1))
-                        .overlay {
-                            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                .strokeBorder((totalPnL >= 0 ? Color.green : Color.red).opacity(0.2), lineWidth: 0.5)
-                        }
-                }
+                        .fill((totalPnL >= 0 ? AppColors.profit : AppColors.loss).opacity(0.15))
+                )
             }
         }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(AppColors.cardSurface)
+        )
     }
 
-    // MARK: - Month Labels Row
+    // MARK: - 热力图卡片
 
-    private var monthLabelsRow: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 0) {
-                // Spacer for weekday labels column
-                Color.clear
-                    .frame(width: 24)
+    private var heatmapCard: some View {
+        VStack(spacing: 12) {
+            // 月份标签 + 热力图网格（同步滚动）
+            ScrollView(.horizontal, showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 6) {
+                    // 热力图网格（包含月份标签）
+                    HStack(alignment: .top, spacing: 0) {
+                        // 星期标签（固定在左侧）
+                        VStack(spacing: 0) {
+                            // 月份标签行的占位
+                            Color.clear.frame(height: 16)
 
-                // Month labels positioned at approximate week positions
-                HStack(spacing: 0) {
-                    ForEach(0..<12, id: \.self) { monthIndex in
-                        Text(monthLabels[monthIndex])
-                            .font(.system(size: 10, weight: .medium))
-                            .foregroundStyle(.secondary)
-                            .frame(width: weeksInMonth(monthIndex + 1) * (cellSize + cellSpacing), alignment: .leading)
+                            VStack(spacing: cellSpacing) {
+                                ForEach(weekdayLabels, id: \.self) { label in
+                                    Text(label)
+                                        .font(.system(size: 10, weight: .medium))
+                                        .foregroundStyle(AppColors.textTertiary)
+                                        .frame(width: 20, height: cellSize)
+                                }
+                            }
+                        }
+                        .padding(.trailing, 4)
+
+                        // 按月份排列的热力图
+                        HStack(alignment: .top, spacing: 4) {
+                            ForEach(1...12, id: \.self) { month in
+                                monthGridView(month: month)
+                            }
+                        }
+                    }
+                }
+            }
+            .frame(height: 7 * (cellSize + cellSpacing) - cellSpacing + 20)
+
+            // 提示信息
+            if showTooltip, let date = tappedDate, let snap = snapshots[date.startOfDay] {
+                tooltipView(date: date, snapshot: snap)
+            }
+
+            // 颜色图例
+            colorLegend
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(AppColors.cardSurface)
+        )
+    }
+
+    /// 单月热力图（包含月份标签）
+    private func monthGridView(month: Int) -> some View {
+        let calendar = Calendar.current
+        let days = daysInMonth(month)
+        let firstDay = calendar.date(from: DateComponents(year: year, month: month, day: 1))!
+        let firstWeekday = calendar.component(.weekday, from: firstDay) - 1 // 0-indexed (Sun=0)
+        let weeksCount = (firstWeekday + days.count + 6) / 7
+
+        return VStack(alignment: .leading, spacing: 4) {
+            // 月份标签
+            Text(monthLabels[month - 1])
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(AppColors.textTertiary)
+                .frame(height: 12)
+
+            // 周列排列（每列是一周）
+            HStack(alignment: .top, spacing: cellSpacing) {
+                ForEach(0..<weeksCount, id: \.self) { weekIndex in
+                    VStack(spacing: cellSpacing) {
+                        ForEach(0..<7, id: \.self) { dayOfWeek in
+                            let dayIndex = weekIndex * 7 + dayOfWeek - firstWeekday
+                            if dayIndex >= 0 && dayIndex < days.count {
+                                let date = days[dayIndex]
+                                let snapshot = snapshots[date.startOfDay]
+                                let pct = snapshot?.dailyPnLPercent ?? 0
+                                let hasData = snapshot != nil
+                                let globalIndex = (month - 1) * 31 + dayIndex
+
+                                heatmapCell(date: date, pct: pct, hasData: hasData, index: globalIndex)
+                            } else {
+                                Color.clear.frame(width: cellSize, height: cellSize)
+                            }
+                        }
                     }
                 }
             }
         }
     }
 
-    private func weeksInMonth(_ month: Int) -> CGFloat {
+    /// 获取指定月份的所有日期
+    private func daysInMonth(_ month: Int) -> [Date] {
         let calendar = Calendar.current
         guard let startOfMonth = calendar.date(from: DateComponents(year: year, month: month, day: 1)),
               let range = calendar.range(of: .day, in: .month, for: startOfMonth) else {
-            return 4
+            return []
         }
-        let daysInMonth = range.count
-        let firstWeekday = calendar.component(.weekday, from: startOfMonth)
-        return CGFloat((daysInMonth + firstWeekday - 1 + 6) / 7)
-    }
 
-    // MARK: - Heatmap Grid
-
-    private var heatmapGrid: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(alignment: .top, spacing: 0) {
-                // Weekday labels column
-                VStack(spacing: cellSpacing) {
-                    ForEach(weekdayLabels, id: \.self) { label in
-                        Text(label)
-                            .font(.system(size: 10, weight: .medium))
-                            .foregroundStyle(.secondary)
-                            .frame(width: 20, height: cellSize)
-                    }
-                }
-                .padding(.trailing, 4)
-
-                // Main grid
-                LazyHGrid(rows: rows, spacing: cellSpacing) {
-                    // Pad to start from correct weekday
-                    let firstDay = yearDays.first ?? Date()
-                    let offset = firstDay.weekday - 1
-                    ForEach(0..<offset, id: \.self) { _ in
-                        Color.clear
-                            .frame(width: cellSize, height: cellSize)
-                    }
-
-                    ForEach(Array(yearDays.enumerated()), id: \.element) { index, date in
-                        let snapshot = snapshots[date.startOfDay]
-                        let pct = snapshot?.dailyPnLPercent ?? 0
-                        let hasData = snapshot != nil
-
-                        heatmapCell(date: date, pct: pct, hasData: hasData, index: index)
-                    }
-                }
-            }
+        return range.compactMap { day in
+            calendar.date(from: DateComponents(year: year, month: month, day: day))
         }
-        .frame(height: 7 * (cellSize + cellSpacing) - cellSpacing)
     }
 
     private func heatmapCell(date: Date, pct: Double, hasData: Bool, index: Int) -> some View {
         let isSelected = tappedDate == date && showTooltip
+        let isFuture = date > Date()
 
         return ZStack {
             RoundedRectangle(cornerRadius: 4, style: .continuous)
-                .fill(hasData ? AppColors.pnlColor(percent: pct) : Color(uiColor: .tertiarySystemFill))
+                .fill(hasData ? AppColors.pnlColor(percent: pct) : Color.white.opacity(isFuture ? 0.03 : 0.08))
 
-            // Glass highlight for data cells
             if hasData {
                 RoundedRectangle(cornerRadius: 4, style: .continuous)
                     .fill(
                         LinearGradient(
-                            colors: [.white.opacity(0.2), .clear],
+                            colors: [.white.opacity(0.15), .clear],
                             startPoint: .top,
                             endPoint: .center
                         )
                     )
             }
 
-            // Selection ring
             if isSelected {
                 RoundedRectangle(cornerRadius: 4, style: .continuous)
                     .strokeBorder(.white, lineWidth: 2)
             }
         }
         .frame(width: cellSize, height: cellSize)
-        .shadow(color: hasData ? (pct >= 0 ? Color.green : Color.red).opacity(0.3) : .clear, radius: 2, x: 0, y: 1)
+        .shadow(color: hasData ? (pct >= 0 ? AppColors.profit : AppColors.loss).opacity(0.25) : .clear, radius: 2, x: 0, y: 1)
         .scaleEffect(animateGrid ? 1 : 0.5)
         .opacity(animateGrid ? 1 : 0)
         .animation(
-            .spring(response: 0.4, dampingFraction: 0.7)
-                .delay(Double(index) * 0.001),
+            .spring(response: 0.4, dampingFraction: 0.7).delay(Double(index) * 0.001),
             value: animateGrid
         )
         .onTapGesture {
@@ -286,69 +244,54 @@ struct YearHeatmapView: View {
         }
     }
 
-    // MARK: - Tooltip
-
     private func tooltipView(date: Date, snapshot: DailySnapshot) -> some View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(date.fullDateString)
-                    .font(.system(.subheadline, weight: .semibold))
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(AppColors.textPrimary)
+
                 Text(date.weekdayString)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .font(.system(size: 12))
+                    .foregroundStyle(AppColors.textTertiary)
             }
 
             Spacer()
 
             VStack(alignment: .trailing, spacing: 4) {
                 Text(snapshot.dailyPnL.compactFormatted(showSign: true))
-                    .font(.system(.subheadline, design: .rounded, weight: .bold))
+                    .font(.system(size: 14, weight: .bold, design: .rounded))
                     .foregroundStyle(snapshot.dailyPnL >= 0 ? AppColors.profit : AppColors.loss)
+
                 Text(snapshot.dailyPnLPercent.percentFormatted())
-                    .font(.system(.caption, design: .monospaced, weight: .medium))
+                    .font(.system(size: 12, weight: .medium, design: .monospaced))
                     .foregroundStyle(snapshot.dailyPnL >= 0 ? AppColors.profit : AppColors.loss)
             }
         }
-        .padding(12)
-        .background {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(.ultraThinMaterial)
-                .overlay {
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(
-                            LinearGradient(
-                                colors: [(snapshot.dailyPnL >= 0 ? Color.green : Color.red).opacity(0.1), .clear],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                }
-                .overlay {
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .strokeBorder(.white.opacity(0.15), lineWidth: 0.5)
-                }
-        }
+        .padding(14)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(AppColors.elevatedSurface)
+        )
         .transition(.asymmetric(
             insertion: .opacity.combined(with: .scale(scale: 0.9)).combined(with: .move(edge: .top)),
             removal: .opacity.combined(with: .scale(scale: 0.95))
         ))
     }
 
-    // MARK: - Color Legend
-
     private var colorLegend: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 10) {
             Text("亏损")
                 .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(.red.opacity(0.9))
+                .foregroundStyle(AppColors.loss)
 
             HStack(spacing: 3) {
-                ForEach([-5.0, -3.0, -1.5, -0.5, 0, 0.5, 1.5, 3.0, 5.0], id: \.self) { pct in
-                    RoundedRectangle(cornerRadius: 3)
+                ForEach([-5.0, -2.0, -0.5, 0, 0.5, 2.0, 5.0], id: \.self) { pct in
+                    RoundedRectangle(cornerRadius: 3, style: .continuous)
                         .fill(AppColors.pnlColor(percent: pct))
-                        .frame(width: 20, height: 20)
+                        .frame(width: 20, height: 18)
                         .overlay {
-                            RoundedRectangle(cornerRadius: 3)
+                            RoundedRectangle(cornerRadius: 3, style: .continuous)
                                 .fill(
                                     LinearGradient(
                                         colors: [.white.opacity(0.15), .clear],
@@ -357,23 +300,19 @@ struct YearHeatmapView: View {
                                     )
                                 )
                         }
-                        .overlay {
-                            RoundedRectangle(cornerRadius: 3)
-                                .strokeBorder(.white.opacity(0.1), lineWidth: 0.5)
-                        }
                 }
             }
 
             Text("盈利")
                 .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(.green.opacity(0.9))
+                .foregroundStyle(AppColors.profit)
         }
+        .padding(.top, 4)
     }
 
-    // MARK: - Year Stats Grid
+    // MARK: - 年度统计卡片
 
-    private var yearStatsGrid: some View {
-        let yearSnapshots = snapshots.values.filter { $0.date.year == year }
+    private var yearStatsCard: some View {
         let profitDays = yearSnapshots.filter { $0.dailyPnL > 0 }.count
         let lossDays = yearSnapshots.filter { $0.dailyPnL < 0 }.count
         let totalDays = profitDays + lossDays
@@ -381,64 +320,92 @@ struct YearHeatmapView: View {
         let maxProfit = yearSnapshots.map(\.dailyPnL).max() ?? 0
         let maxLoss = yearSnapshots.map(\.dailyPnL).min() ?? 0
 
-        return LazyVGrid(columns: [
-            GridItem(.flexible()),
-            GridItem(.flexible()),
-            GridItem(.flexible()),
-            GridItem(.flexible())
-        ], spacing: 12) {
-            StatCard(
-                icon: "arrow.up.circle.fill",
-                iconColor: .green,
-                title: "盈利天数",
-                value: "\(profitDays)",
-                valueColor: AppColors.profit
-            )
+        return VStack(spacing: 16) {
+            // 标题
+            HStack {
+                HStack(spacing: 8) {
+                    ZStack {
+                        Circle()
+                            .fill(Color.blue.opacity(0.15))
+                            .frame(width: 32, height: 32)
 
-            StatCard(
-                icon: "arrow.down.circle.fill",
-                iconColor: .red,
-                title: "亏损天数",
-                value: "\(lossDays)",
-                valueColor: AppColors.loss
-            )
+                        Image(systemName: "chart.bar.xaxis")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(.blue)
+                    }
 
-            StatCard(
-                icon: "target",
-                iconColor: winRate >= 50 ? .green : .red,
-                title: "胜率",
-                value: String(format: "%.1f%%", winRate),
-                valueColor: winRate >= 50 ? AppColors.profit : AppColors.loss
-            )
+                    Text("年度统计")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(AppColors.textPrimary)
+                }
 
-            StatCard(
-                icon: "chart.line.uptrend.xyaxis",
-                iconColor: .blue,
-                title: "交易天数",
-                value: "\(totalDays)",
-                valueColor: .primary
-            )
+                Spacer()
+            }
 
-            StatCard(
-                icon: "arrow.up.right.circle.fill",
-                iconColor: .green,
-                title: "最大单日盈利",
-                value: maxProfit.compactFormatted(showSign: true),
-                valueColor: AppColors.profit
-            )
+            // 统计网格
+            LazyVGrid(columns: [
+                GridItem(.flexible()),
+                GridItem(.flexible()),
+                GridItem(.flexible())
+            ], spacing: 12) {
+                StatCard(
+                    icon: "arrow.up.circle.fill",
+                    iconColor: AppColors.profit,
+                    title: "盈利天数",
+                    value: "\(profitDays)",
+                    valueColor: AppColors.profit
+                )
 
-            StatCard(
-                icon: "arrow.down.right.circle.fill",
-                iconColor: .red,
-                title: "最大单日亏损",
-                value: maxLoss.compactFormatted(showSign: true),
-                valueColor: AppColors.loss
-            )
+                StatCard(
+                    icon: "arrow.down.circle.fill",
+                    iconColor: AppColors.loss,
+                    title: "亏损天数",
+                    value: "\(lossDays)",
+                    valueColor: AppColors.loss
+                )
+
+                StatCard(
+                    icon: "target",
+                    iconColor: winRate >= 50 ? AppColors.profit : AppColors.loss,
+                    title: "胜率",
+                    value: String(format: "%.1f%%", winRate),
+                    valueColor: winRate >= 50 ? AppColors.profit : AppColors.loss
+                )
+
+                StatCard(
+                    icon: "chart.line.uptrend.xyaxis",
+                    iconColor: .blue,
+                    title: "交易天数",
+                    value: "\(totalDays)",
+                    valueColor: AppColors.textPrimary
+                )
+
+                StatCard(
+                    icon: "arrow.up.right.circle.fill",
+                    iconColor: AppColors.profit,
+                    title: "最大盈利",
+                    value: maxProfit.compactFormatted(showSign: true),
+                    valueColor: AppColors.profit
+                )
+
+                StatCard(
+                    icon: "arrow.down.right.circle.fill",
+                    iconColor: AppColors.loss,
+                    title: "最大亏损",
+                    value: maxLoss.compactFormatted(showSign: true),
+                    valueColor: AppColors.loss
+                )
+            }
         }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(AppColors.cardSurface)
+        )
     }
 }
 
-// MARK: - Stat Card
+// MARK: - 统计卡片
 
 private struct StatCard: View {
     let icon: String
@@ -448,37 +415,32 @@ private struct StatCard: View {
     let valueColor: Color
 
     var body: some View {
-        VStack(spacing: 6) {
+        VStack(spacing: 8) {
             Image(systemName: icon)
-                .font(.system(size: 16))
+                .font(.system(size: 18))
                 .foregroundStyle(iconColor)
 
             Text(title)
-                .font(.caption2)
-                .foregroundStyle(.secondary)
+                .font(.system(size: 11))
+                .foregroundStyle(AppColors.textTertiary)
                 .lineLimit(1)
-                .minimumScaleFactor(0.8)
 
             Text(value)
-                .font(.system(.subheadline, design: .rounded, weight: .bold))
+                .font(.system(size: 15, weight: .bold, design: .rounded))
                 .foregroundStyle(valueColor)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 10)
-        .background {
+        .padding(.vertical, 12)
+        .background(
             RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(Color(uiColor: .secondarySystemBackground).opacity(0.5))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .strokeBorder(.white.opacity(0.08), lineWidth: 0.5)
-                }
-        }
+                .fill(AppColors.elevatedSurface)
+        )
     }
 }
 
-// MARK: - Date Extensions for Year View
+// MARK: - Date Extensions
 
 extension Date {
     var fullDateString: String {
@@ -499,7 +461,8 @@ extension Date {
 #Preview {
     ScrollView {
         YearHeatmapView(year: 2026, snapshots: [:])
-            .padding()
+            .padding(16)
     }
     .background(AppColors.background)
+    .preferredColorScheme(.dark)
 }

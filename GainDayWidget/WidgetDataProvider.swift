@@ -25,22 +25,22 @@ enum WidgetColors {
     static let changeBadgeGreen = profit
     static let changeBadgeRed = loss
 
-    /// 12+ stop saturated heatmap colors matching AppColors.pnlColor
+    /// 12+ stop saturated heatmap colors matching AppColors.pnlColor (High Contrast)
     static func pnlColor(percent: Double) -> Color {
         switch percent {
         case ..<(-5):   return Color(hex: 0xB71C1C)   // deep crimson
-        case ..<(-3):   return Color(hex: 0xD32F2F)   // crimson
-        case ..<(-2):   return Color(hex: 0xE53935)   // red
-        case ..<(-1):   return Color(hex: 0xEF5350)   // light red
-        case ..<(-0.5): return Color(hex: 0xE57373)   // coral
-        case ..<0:      return Color(hex: 0xFFCDD2)   // muted pink
-        case 0:         return Color(hex: 0xE0E0E0)   // neutral gray
-        case ..<0.5:    return Color(hex: 0xC8E6C9)   // pale green
-        case ..<1:      return Color(hex: 0xA5D6A7)   // light green
-        case ..<2:      return Color(hex: 0x66BB6A)   // emerald
-        case ..<3:      return Color(hex: 0x43A047)   // green
-        case ..<5:      return Color(hex: 0x2E7D32)   // deep green
-        default:        return Color(hex: 0x1B5E20)   // darkest green
+        case ..<(-3):   return Color(hex: 0xC62828)   // dark red
+        case ..<(-2):   return Color(hex: 0xD32F2F)   // crimson
+        case ..<(-1):   return Color(hex: 0xE53935)   // red
+        case ..<(-0.5): return Color(hex: 0xEF5350)   // coral red
+        case ..<0:      return Color(hex: 0xF44336)   // medium red
+        case 0:         return Color(hex: 0x616161)   // neutral dark gray
+        case ..<0.5:    return Color(hex: 0x4CAF50)   // medium green
+        case ..<1:      return Color(hex: 0x43A047)   // green
+        case ..<2:      return Color(hex: 0x388E3C)   // darker green
+        case ..<3:      return Color(hex: 0x2E7D32)   // deep green
+        case ..<5:      return Color(hex: 0x1B5E20)   // darkest green
+        default:        return Color(hex: 0x0D5302)   // ultra deep green
         }
     }
 }
@@ -109,14 +109,14 @@ struct WidgetDataLoader {
             let container = try ModelContainer(for: schema, configurations: [config])
             let context = container.mainContext
 
-            var descriptor = FetchDescriptor<DailySnapshot>(
+            let descriptor = FetchDescriptor<DailySnapshot>(
                 sortBy: [SortDescriptor(\.date, order: .reverse)]
             )
-            descriptor.fetchLimit = 1
 
             let snapshots = try context.fetch(descriptor)
 
-            if let latest = snapshots.first {
+            // 只获取全局快照（portfolioID == nil）
+            if let latest = snapshots.first(where: { $0.portfolioID == nil }) {
                 return WidgetPnLData(
                     totalValue: latest.totalValue,
                     dailyPnL: latest.dailyPnL,
@@ -142,18 +142,16 @@ struct WidgetDataLoader {
             let weekStart = Date().startOfWeek
             let weekEnd = weekStart.adding(days: 7)
 
-            let predicate = #Predicate<DailySnapshot> {
-                $0.date >= weekStart && $0.date < weekEnd
-            }
             let descriptor = FetchDescriptor<DailySnapshot>(
-                predicate: predicate,
                 sortBy: [SortDescriptor(\.date)]
             )
 
             let snapshots = try context.fetch(descriptor)
-            return snapshots.map {
-                WidgetDayPnL(date: $0.date, pnl: $0.dailyPnL, pnlPercent: $0.dailyPnLPercent)
-            }
+
+            // 只获取全局快照并按日期过滤
+            return snapshots
+                .filter { $0.portfolioID == nil && $0.date >= weekStart && $0.date < weekEnd }
+                .map { WidgetDayPnL(date: $0.date, pnl: $0.dailyPnL, pnlPercent: $0.dailyPnLPercent) }
         } catch {
             return []
         }
@@ -170,15 +168,16 @@ struct WidgetDataLoader {
             let monthStart = now.startOfMonth
             let monthEnd = now.endOfMonth.adding(days: 1)
 
-            let predicate = #Predicate<DailySnapshot> {
-                $0.date >= monthStart && $0.date < monthEnd
-            }
             let descriptor = FetchDescriptor<DailySnapshot>(
-                predicate: predicate,
                 sortBy: [SortDescriptor(\.date)]
             )
 
-            let snapshots = try context.fetch(descriptor)
+            let allSnapshots = try context.fetch(descriptor)
+
+            // 只获取全局快照并按日期过滤
+            let snapshots = allSnapshots.filter {
+                $0.portfolioID == nil && $0.date >= monthStart && $0.date < monthEnd
+            }
 
             var dayPcts: [Date: Double] = [:]
             for snap in snapshots {

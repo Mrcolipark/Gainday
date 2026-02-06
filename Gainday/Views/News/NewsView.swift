@@ -11,6 +11,25 @@ struct NewsView: View {
         AppNavigationWrapper(title: "News") {
             ScrollView {
                 VStack(spacing: 16) {
+                    // 品牌标题
+                    HStack {
+                        Text("GainDay")
+                            .font(.custom("Georgia-Bold", size: 28))
+                            .foregroundStyle(
+                                LinearGradient(
+                                    colors: [AppColors.profit, AppColors.profit.opacity(0.7)],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+                        Text("盈历")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundStyle(AppColors.textSecondary)
+                        Spacer()
+                    }
+                    .padding(.horizontal)
+                    .padding(.top, 4)
+
                     // Category filter pills
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 8) {

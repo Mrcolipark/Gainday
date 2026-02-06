@@ -6,9 +6,9 @@ import UniformTypeIdentifiers
 import UIKit
 #endif
 
+/// 设置页面 - 统一设计语言
 struct SettingsView: View {
     @Environment(\.modelContext) private var modelContext
-    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dismiss) private var dismiss
     @Query(sort: \Portfolio.sortOrder) private var portfolios: [Portfolio]
 
@@ -16,9 +16,7 @@ struct SettingsView: View {
     @AppStorage("iCloudSync") private var iCloudSync = true
     @AppStorage("appearance") private var appearance = "system"
 
-    @State private var showAccountManage = false
     @State private var showAddAccount = false
-    @State private var showExportSheet = false
     @State private var portfolioToDelete: Portfolio?
     @State private var showDeleteConfirmation = false
     @State private var showImportPicker = false
@@ -27,202 +25,46 @@ struct SettingsView: View {
 
     var body: some View {
         NavigationStack {
-            List {
-                // Currency
-                Section {
-                    HStack(spacing: 10) {
-                        settingsIcon("yensign.circle.fill", color: .green)
-                        Picker("基准货币", selection: $baseCurrency) {
-                            ForEach(BaseCurrency.allCases) { currency in
-                                Text(currency.displayName).tag(currency.rawValue)
-                            }
-                        }
-                    }
-                } header: {
-                    Label("基准货币", systemImage: "dollarsign.circle")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.green)
+            ScrollView {
+                VStack(spacing: 24) {
+                    // 基准货币
+                    currencySection
+
+                    // 账户管理
+                    accountsSection
+
+                    // 数据同步
+                    syncSection
+
+                    // 外观设置
+                    appearanceSection
+
+                    // 数据管理
+                    dataSection
+
+                    // 关于
+                    aboutSection
+
+                    // Debug
+                    #if DEBUG
+                    debugSection
+                    #endif
+
+                    Spacer(minLength: 40)
                 }
-
-                // Account Management
-                Section {
-                    ForEach(portfolios) { portfolio in
-                        NavigationLink {
-                            AccountManageView(portfolio: portfolio)
-                        } label: {
-                            HStack(spacing: 10) {
-                                ZStack {
-                                    Circle()
-                                        .fill(
-                                            LinearGradient(
-                                                colors: [portfolio.tagColor, portfolio.tagColor.opacity(0.6)],
-                                                startPoint: .topLeading,
-                                                endPoint: .bottomTrailing
-                                            )
-                                        )
-                                        .frame(width: 32, height: 32)
-                                    Image(systemName: portfolio.accountTypeEnum.iconName)
-                                        .font(.system(size: 13, weight: .semibold))
-                                        .foregroundStyle(.white)
-                                }
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(portfolio.name)
-                                        .font(.subheadline.weight(.medium))
-                                    HStack(spacing: 4) {
-                                        Text(portfolio.accountTypeEnum.displayName)
-                                            .font(.caption2)
-                                            .foregroundStyle(.secondary)
-                                        Text("·")
-                                            .foregroundStyle(.secondary.opacity(0.5))
-                                        Text(portfolio.baseCurrencyEnum.rawValue)
-                                            .font(.caption2)
-                                            .foregroundStyle(.secondary)
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    .onDelete { offsets in
-                        if let index = offsets.first {
-                            portfolioToDelete = portfolios[index]
-                            showDeleteConfirmation = true
-                        }
-                    }
-                    .onMove(perform: movePortfolios)
-
-                    Button {
-                        showAddAccount = true
-                    } label: {
-                        HStack(spacing: 10) {
-                            ZStack {
-                                Circle()
-                                    .fill(Color.blue.opacity(0.12))
-                                    .frame(width: 32, height: 32)
-                                Image(systemName: "plus")
-                                    .font(.system(size: 14, weight: .semibold))
-                                    .foregroundStyle(.blue)
-                            }
-                            Text("添加账户")
-                                .foregroundStyle(.blue)
-                        }
-                    }
-                } header: {
-                    Label("账户管理", systemImage: "building.columns")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.blue)
-                }
-
-                // Sync
-                Section {
-                    HStack(spacing: 10) {
-                        settingsIcon("icloud.fill", color: .cyan)
-                        Toggle("iCloud 同步", isOn: $iCloudSync)
-                    }
-                } header: {
-                    Label("数据同步", systemImage: "arrow.triangle.2.circlepath")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.cyan)
-                }
-
-                // Appearance
-                Section {
-                    HStack(spacing: 10) {
-                        settingsIcon("paintpalette.fill", color: .purple)
-                        Picker("主题", selection: $appearance) {
-                            Text("跟随系统").tag("system")
-                            Text("始终浅色").tag("light")
-                            Text("始终深色").tag("dark")
-                        }
-                    }
-                } header: {
-                    Label("外观", systemImage: "moon.circle")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.purple)
-                }
-
-                // Data
-                Section {
-                    Button {
-                        exportCSV()
-                    } label: {
-                        HStack(spacing: 10) {
-                            settingsIcon("square.and.arrow.up.fill", color: .orange)
-                            Text("导出数据 (CSV)")
-                                .foregroundStyle(.primary)
-                        }
-                    }
-
-                    Button {
-                        showImportPicker = true
-                    } label: {
-                        HStack(spacing: 10) {
-                            settingsIcon("square.and.arrow.down.fill", color: .teal)
-                            Text("导入数据 (CSV)")
-                                .foregroundStyle(.primary)
-                        }
-                    }
-                } header: {
-                    Label("数据管理", systemImage: "externaldrive")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.orange)
-                }
-
-                // About
-                Section {
-                    HStack(spacing: 10) {
-                        settingsIcon("info.circle.fill", color: .indigo)
-                        Text("版本")
-                        Spacer()
-                        Text("1.0.0")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                    }
-
-                    HStack(spacing: 10) {
-                        settingsIcon("sparkles", color: .pink)
-                        Text("App 名称")
-                        Spacer()
-                        Text("GainDay 盈历")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                    }
-
-                    Link(destination: URL(string: "https://github.com")!) {
-                        HStack(spacing: 10) {
-                            settingsIcon("envelope.fill", color: .blue)
-                            Text("反馈与建议")
-                                .foregroundStyle(.primary)
-                            Spacer()
-                            Image(systemName: "arrow.up.right")
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                } header: {
-                    Label("关于", systemImage: "heart")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.pink)
-                }
-
-                // Debug section (remove in production)
-                #if DEBUG
-                DebugDataSection()
-                #endif
+                .padding(16)
             }
+            .background(AppColors.background)
             .navigationTitle("设置")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
-            .scrollContentBackground(.hidden)
-            .background(AppColors.background)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    EditButton()
-                }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") {
+                    Button("完成") {
                         dismiss()
                     }
-                    .font(.body.weight(.semibold))
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(AppColors.profit)
                 }
             }
             #endif
@@ -277,34 +119,390 @@ struct SettingsView: View {
         }
     }
 
-    // MARK: - Settings Icon
+    // MARK: - 基准货币
+
+    private var currencySection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            sectionHeader("基准货币", icon: "yensign.circle.fill")
+
+            VStack(spacing: 0) {
+                HStack(spacing: 12) {
+                    settingsIcon("yensign.circle.fill", color: AppColors.profit)
+
+                    Text("基准货币")
+                        .font(.system(size: 15))
+                        .foregroundStyle(AppColors.textPrimary)
+
+                    Spacer()
+
+                    Picker("", selection: $baseCurrency) {
+                        ForEach(BaseCurrency.allCases) { currency in
+                            Text(currency.displayName).tag(currency.rawValue)
+                        }
+                    }
+                    .labelsHidden()
+                    .tint(AppColors.textSecondary)
+                }
+                .padding(16)
+            }
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(AppColors.cardSurface)
+            )
+        }
+    }
+
+    // MARK: - 账户管理
+
+    private var accountsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            sectionHeader("账户管理", icon: "building.columns.fill")
+
+            VStack(spacing: 0) {
+                ForEach(Array(portfolios.enumerated()), id: \.element.id) { index, portfolio in
+                    NavigationLink {
+                        AccountManageView(portfolio: portfolio)
+                    } label: {
+                        accountRow(portfolio)
+                    }
+
+                    if index < portfolios.count - 1 {
+                        Divider()
+                            .background(AppColors.dividerColor)
+                            .padding(.leading, 60)
+                    }
+                }
+
+                if !portfolios.isEmpty {
+                    Divider()
+                        .background(AppColors.dividerColor)
+                }
+
+                // 添加账户按钮
+                Button {
+                    showAddAccount = true
+                } label: {
+                    HStack(spacing: 12) {
+                        ZStack {
+                            Circle()
+                                .fill(AppColors.profit.opacity(0.15))
+                                .frame(width: 36, height: 36)
+                            Image(systemName: "plus")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundStyle(AppColors.profit)
+                        }
+
+                        Text("添加账户")
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundStyle(AppColors.profit)
+
+                        Spacer()
+                    }
+                    .padding(16)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(AppColors.cardSurface)
+            )
+        }
+    }
+
+    private func accountRow(_ portfolio: Portfolio) -> some View {
+        HStack(spacing: 12) {
+            ZStack {
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: [portfolio.tagColor, portfolio.tagColor.opacity(0.7)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 36, height: 36)
+                Image(systemName: portfolio.accountTypeEnum.iconName)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(.white)
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(portfolio.name)
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(AppColors.textPrimary)
+
+                HStack(spacing: 6) {
+                    Text(portfolio.accountTypeEnum.displayName)
+                        .font(.system(size: 12))
+                        .foregroundStyle(AppColors.textTertiary)
+
+                    Text("·")
+                        .foregroundStyle(AppColors.textTertiary.opacity(0.5))
+
+                    Text(portfolio.baseCurrencyEnum.rawValue)
+                        .font(.system(size: 12))
+                        .foregroundStyle(AppColors.textTertiary)
+
+                    Text("·")
+                        .foregroundStyle(AppColors.textTertiary.opacity(0.5))
+
+                    Text("\(portfolio.holdings.count) 持仓")
+                        .font(.system(size: 12))
+                        .foregroundStyle(AppColors.textTertiary)
+                }
+            }
+
+            Spacer()
+
+            Image(systemName: "chevron.right")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(AppColors.textTertiary)
+        }
+        .padding(16)
+        .contentShape(Rectangle())
+    }
+
+    // MARK: - 数据同步
+
+    private var syncSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            sectionHeader("数据同步", icon: "arrow.triangle.2.circlepath")
+
+            VStack(spacing: 0) {
+                HStack(spacing: 12) {
+                    settingsIcon("icloud.fill", color: .cyan)
+
+                    Text("iCloud 同步")
+                        .font(.system(size: 15))
+                        .foregroundStyle(AppColors.textPrimary)
+
+                    Spacer()
+
+                    Toggle("", isOn: $iCloudSync)
+                        .labelsHidden()
+                        .tint(AppColors.profit)
+                }
+                .padding(16)
+            }
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(AppColors.cardSurface)
+            )
+        }
+    }
+
+    // MARK: - 外观设置
+
+    private var appearanceSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            sectionHeader("外观", icon: "moon.circle.fill")
+
+            VStack(spacing: 0) {
+                HStack(spacing: 12) {
+                    settingsIcon("paintpalette.fill", color: .purple)
+
+                    Text("主题")
+                        .font(.system(size: 15))
+                        .foregroundStyle(AppColors.textPrimary)
+
+                    Spacer()
+
+                    Picker("", selection: $appearance) {
+                        Text("跟随系统").tag("system")
+                        Text("浅色").tag("light")
+                        Text("深色").tag("dark")
+                    }
+                    .labelsHidden()
+                    .tint(AppColors.textSecondary)
+                }
+                .padding(16)
+            }
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(AppColors.cardSurface)
+            )
+        }
+    }
+
+    // MARK: - 数据管理
+
+    private var dataSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            sectionHeader("数据管理", icon: "externaldrive.fill")
+
+            VStack(spacing: 0) {
+                // 导出
+                Button {
+                    exportCSV()
+                } label: {
+                    HStack(spacing: 12) {
+                        settingsIcon("square.and.arrow.up.fill", color: .orange)
+
+                        Text("导出数据 (CSV)")
+                            .font(.system(size: 15))
+                            .foregroundStyle(AppColors.textPrimary)
+
+                        Spacer()
+
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(AppColors.textTertiary)
+                    }
+                    .padding(16)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+
+                Divider()
+                    .background(AppColors.dividerColor)
+                    .padding(.leading, 60)
+
+                // 导入
+                Button {
+                    showImportPicker = true
+                } label: {
+                    HStack(spacing: 12) {
+                        settingsIcon("square.and.arrow.down.fill", color: .teal)
+
+                        Text("导入数据 (CSV)")
+                            .font(.system(size: 15))
+                            .foregroundStyle(AppColors.textPrimary)
+
+                        Spacer()
+
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(AppColors.textTertiary)
+                    }
+                    .padding(16)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+
+            }
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(AppColors.cardSurface)
+            )
+        }
+    }
+
+    // MARK: - 关于
+
+    private var aboutSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            sectionHeader("关于", icon: "info.circle.fill")
+
+            VStack(spacing: 0) {
+                // App 名称
+                HStack(spacing: 12) {
+                    settingsIcon("sparkles", color: AppColors.profit)
+
+                    Text("App 名称")
+                        .font(.system(size: 15))
+                        .foregroundStyle(AppColors.textPrimary)
+
+                    Spacer()
+
+                    Text("GainDay 盈历")
+                        .font(.system(size: 14))
+                        .foregroundStyle(AppColors.textSecondary)
+                }
+                .padding(16)
+
+                Divider()
+                    .background(AppColors.dividerColor)
+                    .padding(.leading, 60)
+
+                // 版本
+                HStack(spacing: 12) {
+                    settingsIcon("info.circle.fill", color: .indigo)
+
+                    Text("版本")
+                        .font(.system(size: 15))
+                        .foregroundStyle(AppColors.textPrimary)
+
+                    Spacer()
+
+                    Text("1.0.0")
+                        .font(.system(size: 14, design: .monospaced))
+                        .foregroundStyle(AppColors.textSecondary)
+                }
+                .padding(16)
+
+                Divider()
+                    .background(AppColors.dividerColor)
+                    .padding(.leading, 60)
+
+                // 反馈
+                Link(destination: URL(string: "https://github.com")!) {
+                    HStack(spacing: 12) {
+                        settingsIcon("envelope.fill", color: .blue)
+
+                        Text("反馈与建议")
+                            .font(.system(size: 15))
+                            .foregroundStyle(AppColors.textPrimary)
+
+                        Spacer()
+
+                        Image(systemName: "arrow.up.right")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(AppColors.textTertiary)
+                    }
+                    .padding(16)
+                    .contentShape(Rectangle())
+                }
+            }
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(AppColors.cardSurface)
+            )
+        }
+    }
+
+    // MARK: - Debug
+
+    #if DEBUG
+    private var debugSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            sectionHeader("开发者选项", icon: "hammer.fill")
+
+            DebugDataSection()
+                .background(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(AppColors.cardSurface)
+                )
+        }
+    }
+    #endif
+
+    // MARK: - 辅助组件
+
+    private func sectionHeader(_ title: String, icon: String) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: icon)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(AppColors.profit)
+
+            Text(title)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(AppColors.textSecondary)
+        }
+    }
 
     private func settingsIcon(_ name: String, color: Color) -> some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 7, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        colors: [color, color.opacity(0.8)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-                .frame(width: 28, height: 28)
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(color)
+                .frame(width: 32, height: 32)
             Image(systemName: name)
-                .font(.system(size: 13, weight: .semibold))
+                .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(.white)
         }
     }
 
-    // deletePortfolios 已移至 alert 中处理，带确认对话框
-
-    private func movePortfolios(from source: IndexSet, to destination: Int) {
-        var sorted = portfolios.sorted { $0.sortOrder < $1.sortOrder }
-        sorted.move(fromOffsets: source, toOffset: destination)
-        for (index, portfolio) in sorted.enumerated() {
-            portfolio.sortOrder = index
-        }
-    }
+    // MARK: - 数据操作
 
     private func exportCSV() {
         var csv = "Account,Symbol,Name,Type,Market,TransactionType,Date,Quantity,Price,Fee,Currency,Note\n"
@@ -340,9 +538,10 @@ struct SettingsView: View {
         }
         #endif
     }
+
 }
 
-// MARK: - Add Account Sheet
+// MARK: - 添加账户 Sheet
 
 struct AddAccountSheet: View {
     @Environment(\.modelContext) private var modelContext
@@ -355,30 +554,180 @@ struct AddAccountSheet: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section {
-                    TextField("账户名称 (如: 楽天証券)", text: $name)
+            ScrollView {
+                VStack(spacing: 24) {
+                    // 账户信息
+                    accountInfoSection
 
-                    Picker("账户类型", selection: $accountType) {
-                        ForEach(AccountType.allCases) { type in
-                            Label(type.displayName, systemImage: type.iconName).tag(type)
-                        }
-                    }
+                    // 标识颜色
+                    colorSection
 
-                    Picker("基准货币", selection: $baseCurrency) {
-                        ForEach(BaseCurrency.allCases) { currency in
-                            Text(currency.displayName).tag(currency)
-                        }
-                    }
-                } header: {
-                    Label("账户信息", systemImage: "building.columns")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.blue)
+                    Spacer(minLength: 100)
+                }
+                .padding(16)
+            }
+            .background(AppColors.background)
+            .safeAreaInset(edge: .bottom) {
+                saveButtonBar
+            }
+            .navigationTitle("添加账户")
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("取消") { dismiss() }
+                        .foregroundStyle(AppColors.textPrimary)
+                }
+            }
+            #endif
+        }
+    }
+
+    // MARK: - 账户信息
+
+    private var accountInfoSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            sectionTitle("账户信息")
+
+            VStack(spacing: 16) {
+                // 账户名称
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("账户名称")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(AppColors.textSecondary)
+
+                    TextField(
+                        "",
+                        text: $name,
+                        prompt: Text("如: 楽天証券、富途牛牛")
+                            .foregroundStyle(AppColors.textTertiary)
+                    )
+                    .font(.system(size: 16))
+                    .foregroundStyle(AppColors.textPrimary)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(AppColors.elevatedSurface)
+                    )
                 }
 
-                Section {
-                    LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 6), spacing: 12) {
-                        ForEach(AppColors.accountTagKeys, id: \.self) { key in
+                // 账户类型
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("账户类型")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(AppColors.textSecondary)
+
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 10) {
+                            ForEach(AccountType.allCases) { type in
+                                Button {
+                                    accountType = type
+                                } label: {
+                                    HStack(spacing: 8) {
+                                        Image(systemName: type.iconName)
+                                            .font(.system(size: 14))
+                                        Text(type.displayName)
+                                            .font(.system(size: 14, weight: .medium))
+                                    }
+                                    .foregroundStyle(accountType == type ? .white : AppColors.textSecondary)
+                                    .padding(.horizontal, 14)
+                                    .padding(.vertical, 10)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                            .fill(accountType == type ? AppColors.profit : AppColors.elevatedSurface)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // 基准货币
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("基准货币")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(AppColors.textSecondary)
+
+                    HStack(spacing: 10) {
+                        ForEach(BaseCurrency.allCases) { currency in
+                            Button {
+                                baseCurrency = currency
+                            } label: {
+                                Text(currency.displayName)
+                                    .font(.system(size: 14, weight: .medium))
+                                    .foregroundStyle(baseCurrency == currency ? .white : AppColors.textSecondary)
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 10)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                            .fill(baseCurrency == currency ? AppColors.profit : AppColors.elevatedSurface)
+                                    )
+                            }
+                        }
+                    }
+                }
+            }
+            .padding(16)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(AppColors.cardSurface)
+            )
+        }
+    }
+
+    // MARK: - 标识颜色
+
+    private var colorSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            sectionTitle("标识颜色")
+
+            VStack(spacing: 16) {
+                // 预览
+                HStack(spacing: 12) {
+                    ZStack {
+                        Circle()
+                            .fill(
+                                LinearGradient(
+                                    colors: [AppColors.tagColor(colorTag), AppColors.tagColor(colorTag).opacity(0.7)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .frame(width: 48, height: 48)
+                            .shadow(color: AppColors.tagColor(colorTag).opacity(0.4), radius: 8, x: 0, y: 4)
+
+                        Image(systemName: accountType.iconName)
+                            .font(.system(size: 20, weight: .semibold))
+                            .foregroundStyle(.white)
+                    }
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(name.isEmpty ? "账户名称" : name)
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundStyle(AppColors.textPrimary)
+
+                        Text("\(accountType.displayName) · \(baseCurrency.rawValue)")
+                            .font(.system(size: 13))
+                            .foregroundStyle(AppColors.textSecondary)
+                    }
+
+                    Spacer()
+                }
+                .padding(12)
+                .background(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(AppColors.elevatedSurface)
+                )
+
+                // 颜色选择
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 6), spacing: 16) {
+                    ForEach(AppColors.accountTagKeys, id: \.self) { key in
+                        Button {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                colorTag = key
+                            }
+                        } label: {
                             ZStack {
                                 Circle()
                                     .fill(
@@ -388,47 +737,62 @@ struct AddAccountSheet: View {
                                             endPoint: .bottomTrailing
                                         )
                                     )
-                                    .frame(width: 36, height: 36)
-                                    .shadow(color: AppColors.tagColor(key).opacity(colorTag == key ? 0.4 : 0), radius: 6, x: 0, y: 2)
+                                    .frame(width: 44, height: 44)
+                                    .shadow(color: AppColors.tagColor(key).opacity(colorTag == key ? 0.5 : 0), radius: 8, x: 0, y: 4)
+
                                 if colorTag == key {
                                     Image(systemName: "checkmark")
-                                        .font(.caption.bold())
+                                        .font(.system(size: 16, weight: .bold))
                                         .foregroundStyle(.white)
                                 }
                             }
                             .scaleEffect(colorTag == key ? 1.1 : 1.0)
-                            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: colorTag)
-                            .onTapGesture {
-                                colorTag = key
-                            }
                         }
+                        .buttonStyle(.plain)
                     }
-                    .padding(.vertical, 4)
-                } header: {
-                    Label("标识颜色", systemImage: "paintpalette")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.purple)
                 }
             }
-            .navigationTitle("添加账户")
-            #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
-            .scrollContentBackground(.hidden)
-            .background(AppColors.background)
-            #endif
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("取消") { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("保存") {
-                        saveAccount()
-                    }
-                    .disabled(name.isEmpty)
-                    .font(.body.weight(.semibold))
-                }
-            }
+            .padding(16)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(AppColors.cardSurface)
+            )
         }
+    }
+
+    // MARK: - 保存按钮
+
+    private var saveButtonBar: some View {
+        VStack(spacing: 0) {
+            Divider()
+                .background(AppColors.dividerColor)
+
+            Button {
+                saveAccount()
+            } label: {
+                Text("保存账户")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(name.isEmpty ? AppColors.textTertiary : AppColors.profit)
+                    )
+            }
+            .disabled(name.isEmpty)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+        }
+        .background(AppColors.cardSurface)
+    }
+
+    // MARK: - 辅助
+
+    private func sectionTitle(_ title: String) -> some View {
+        Text(title)
+            .font(.system(size: 15, weight: .semibold))
+            .foregroundStyle(AppColors.textPrimary)
     }
 
     private func saveAccount() {
@@ -439,6 +803,11 @@ struct AddAccountSheet: View {
             colorTag: colorTag
         )
         modelContext.insert(portfolio)
+
+        #if os(iOS)
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
+        #endif
+
         dismiss()
     }
 }
@@ -446,4 +815,5 @@ struct AddAccountSheet: View {
 #Preview {
     SettingsView()
         .modelContainer(for: Portfolio.self, inMemory: true)
+        .preferredColorScheme(.dark)
 }

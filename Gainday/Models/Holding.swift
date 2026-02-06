@@ -120,4 +120,51 @@ class Holding {
     var currency: String {
         marketEnum.currency
     }
+
+    // MARK: - 历史持仓计算
+
+    /// 计算在指定日期的持仓数量（基于该日期之前的交易记录）
+    func quantityAt(date: Date) -> Double {
+        let endOfDay = date.adding(days: 1).startOfDay
+        return transactions
+            .filter { $0.date < endOfDay }
+            .reduce(0) { result, tx in
+                let txType = TransactionType(rawValue: tx.type) ?? .buy
+                switch txType {
+                case .buy:      return result + tx.quantity
+                case .sell:     return result - tx.quantity
+                case .dividend: return result
+                }
+            }
+    }
+
+    /// 计算在指定日期的平均成本（基于该日期之前的交易记录）
+    func averageCostAt(date: Date) -> Double {
+        let endOfDay = date.adding(days: 1).startOfDay
+        var totalCost: Double = 0
+        var totalQty: Double = 0
+
+        for tx in transactions.filter({ $0.date < endOfDay }).sorted(by: { $0.date < $1.date }) {
+            let txType = TransactionType(rawValue: tx.type) ?? .buy
+            switch txType {
+            case .buy:
+                totalCost += tx.quantity * tx.price + tx.fee
+                totalQty += tx.quantity
+            case .sell:
+                if totalQty > 0 {
+                    let avgBefore = totalCost / totalQty
+                    totalCost -= tx.quantity * avgBefore
+                }
+                totalQty -= tx.quantity
+            case .dividend:
+                break
+            }
+        }
+        return totalQty > 0 ? totalCost / totalQty : 0
+    }
+
+    /// 计算在指定日期的总成本
+    func totalCostAt(date: Date) -> Double {
+        averageCostAt(date: date) * quantityAt(date: date)
+    }
 }

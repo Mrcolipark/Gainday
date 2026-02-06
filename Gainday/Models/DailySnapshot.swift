@@ -12,6 +12,12 @@ class DailySnapshot {
     var cumulativePnL: Double
     var breakdownJSON: String
 
+    /// 持仓级别的当日盈亏明细 JSON
+    var holdingPnLJSON: String
+
+    /// 账户ID - nil 表示全局汇总，有值表示特定账户的快照
+    var portfolioID: String?
+
     init(
         id: UUID = UUID(),
         date: Date = Date(),
@@ -20,7 +26,9 @@ class DailySnapshot {
         dailyPnL: Double = 0,
         dailyPnLPercent: Double = 0,
         cumulativePnL: Double = 0,
-        breakdownJSON: String = "{}"
+        breakdownJSON: String = "[]",
+        holdingPnLJSON: String = "[]",
+        portfolioID: String? = nil
     ) {
         self.id = id
         self.date = date
@@ -30,6 +38,13 @@ class DailySnapshot {
         self.dailyPnLPercent = dailyPnLPercent
         self.cumulativePnL = cumulativePnL
         self.breakdownJSON = breakdownJSON
+        self.holdingPnLJSON = holdingPnLJSON
+        self.portfolioID = portfolioID
+    }
+
+    /// 是否是全局汇总快照
+    var isGlobalSnapshot: Bool {
+        portfolioID == nil
     }
 
     var dateOnly: Date {
@@ -56,6 +71,16 @@ struct AssetBreakdown: Codable {
     var currency: String
 }
 
+/// 单个持仓的当日盈亏明细
+struct HoldingDailyPnL: Codable {
+    var symbol: String
+    var name: String
+    var dailyPnL: Double
+    var dailyPnLPercent: Double
+    var marketValue: Double
+}
+
+
 extension DailySnapshot {
     var breakdown: [AssetBreakdown] {
         guard let data = breakdownJSON.data(using: .utf8) else { return [] }
@@ -67,5 +92,27 @@ extension DailySnapshot {
            let json = String(data: data, encoding: .utf8) {
             breakdownJSON = json
         }
+    }
+
+    /// 获取持仓级别的当日盈亏明细
+    var holdingPnLs: [HoldingDailyPnL] {
+        guard let data = holdingPnLJSON.data(using: .utf8) else { return [] }
+        return (try? JSONDecoder().decode([HoldingDailyPnL].self, from: data)) ?? []
+    }
+
+    /// 设置持仓级别的当日盈亏明细
+    func setHoldingPnLs(_ items: [HoldingDailyPnL]) {
+        if let data = try? JSONEncoder().encode(items),
+           let json = String(data: data, encoding: .utf8) {
+            holdingPnLJSON = json
+        }
+    }
+
+    /// 获取波动最大的前N个持仓（按绝对值排序）
+    func topMovers(limit: Int = 5) -> [HoldingDailyPnL] {
+        holdingPnLs
+            .sorted { abs($0.dailyPnL) > abs($1.dailyPnL) }
+            .prefix(limit)
+            .map { $0 }
     }
 }

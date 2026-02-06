@@ -1,5 +1,6 @@
 import SwiftUI
 
+/// 月度统计栏 - 统一设计语言
 struct MonthStatsBar: View {
     let snapshots: [DailySnapshot]
     let baseCurrency: String
@@ -22,64 +23,99 @@ struct MonthStatsBar: View {
         return Double(profitDays) / Double(total) * 100
     }
 
+    private var avgPnLPercent: Double {
+        guard !snapshots.isEmpty else { return 0 }
+        return snapshots.reduce(0.0) { $0 + $1.dailyPnLPercent } / Double(snapshots.count)
+    }
+
     var body: some View {
-        AccentGlassCard(color: totalPnL >= 0 ? .green : .red) {
-            VStack(spacing: 14) {
-                HStack {
-                    HStack(spacing: 6) {
+        VStack(spacing: 16) {
+            // 头部：标题和总盈亏
+            HStack {
+                HStack(spacing: 8) {
+                    ZStack {
+                        Circle()
+                            .fill((totalPnL >= 0 ? AppColors.profit : AppColors.loss).opacity(0.15))
+                            .frame(width: 32, height: 32)
+
                         Image(systemName: "chart.bar.doc.horizontal.fill")
-                            .font(.caption)
-                            .foregroundStyle(totalPnL >= 0 ? .green : .red)
-                        Text("月度汇总")
-                            .font(.headline)
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(totalPnL >= 0 ? AppColors.profit : AppColors.loss)
                     }
-                    Spacer()
-                    PnLText(totalPnL, currencyCode: baseCurrency, style: .small)
+
+                    Text("月度汇总")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(AppColors.textPrimary)
                 }
 
-                Rectangle()
-                    .fill(AppColors.dividerColor)
-                    .frame(height: 1)
+                Spacer()
 
-                HStack(spacing: 0) {
-                    MonthStatItem(
-                        icon: "arrow.up.circle.fill",
-                        iconColor: AppColors.profit,
-                        title: "盈利",
-                        value: "\(profitDays)天",
-                        valueColor: AppColors.profit
-                    )
-                    MonthStatItem(
-                        icon: "arrow.down.circle.fill",
-                        iconColor: AppColors.loss,
-                        title: "亏损",
-                        value: "\(lossDays)天",
-                        valueColor: AppColors.loss
-                    )
-                    MonthStatItem(
-                        icon: "target",
-                        iconColor: winRate >= 50 ? AppColors.profit : AppColors.loss,
-                        title: "胜率",
-                        value: String(format: "%.1f%%", winRate),
-                        valueColor: winRate >= 50 ? AppColors.profit : AppColors.loss
-                    )
+                Text(totalPnL.currencyFormatted(code: baseCurrency, showSign: true))
+                    .font(.system(size: 17, weight: .bold, design: .rounded))
+                    .foregroundStyle(totalPnL >= 0 ? AppColors.profit : AppColors.loss)
+            }
 
-                    if !snapshots.isEmpty {
-                        let totalPnLPercent = snapshots.reduce(0.0) { $0 + $1.dailyPnLPercent }
-                        let avgPnLPercent = totalPnLPercent / Double(snapshots.count)
-                        MonthStatItem(
-                            icon: "chart.line.flattrend.xyaxis",
-                            iconColor: avgPnLPercent >= 0 ? AppColors.profit : AppColors.loss,
-                            title: "日均",
-                            value: String(format: "%.2f%%", avgPnLPercent),
-                            valueColor: avgPnLPercent >= 0 ? AppColors.profit : AppColors.loss
-                        )
-                    }
+            Divider()
+                .background(AppColors.dividerColor)
+
+            // 统计数据网格
+            HStack(spacing: 0) {
+                MonthStatItem(
+                    icon: "arrow.up.circle.fill",
+                    iconColor: AppColors.profit,
+                    title: "盈利",
+                    value: "\(profitDays)天",
+                    valueColor: AppColors.profit
+                )
+
+                verticalDivider
+
+                MonthStatItem(
+                    icon: "arrow.down.circle.fill",
+                    iconColor: AppColors.loss,
+                    title: "亏损",
+                    value: "\(lossDays)天",
+                    valueColor: AppColors.loss
+                )
+
+                verticalDivider
+
+                MonthStatItem(
+                    icon: "target",
+                    iconColor: winRate >= 50 ? AppColors.profit : AppColors.loss,
+                    title: "胜率",
+                    value: String(format: "%.1f%%", winRate),
+                    valueColor: winRate >= 50 ? AppColors.profit : AppColors.loss
+                )
+
+                if !snapshots.isEmpty {
+                    verticalDivider
+
+                    MonthStatItem(
+                        icon: "chart.line.flattrend.xyaxis",
+                        iconColor: avgPnLPercent >= 0 ? AppColors.profit : AppColors.loss,
+                        title: "日均",
+                        value: String(format: "%.2f%%", avgPnLPercent),
+                        valueColor: avgPnLPercent >= 0 ? AppColors.profit : AppColors.loss
+                    )
                 }
             }
         }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(AppColors.cardSurface)
+        )
+    }
+
+    private var verticalDivider: some View {
+        Rectangle()
+            .fill(AppColors.dividerColor)
+            .frame(width: 1, height: 40)
     }
 }
+
+// MARK: - 统计项
 
 private struct MonthStatItem: View {
     let icon: String
@@ -91,15 +127,17 @@ private struct MonthStatItem: View {
     var body: some View {
         VStack(spacing: 6) {
             Image(systemName: icon)
-                .font(.system(size: 14))
+                .font(.system(size: 16))
                 .foregroundStyle(iconColor)
+
             Text(value)
-                .font(.system(.subheadline, design: .rounded, weight: .bold))
+                .font(.system(size: 15, weight: .bold, design: .rounded))
                 .monospacedDigit()
                 .foregroundStyle(valueColor)
+
             Text(title)
-                .font(.caption2)
-                .foregroundStyle(AppColors.textSecondary)
+                .font(.system(size: 11))
+                .foregroundStyle(AppColors.textTertiary)
         }
         .frame(maxWidth: .infinity)
     }
@@ -108,4 +146,6 @@ private struct MonthStatItem: View {
 #Preview {
     MonthStatsBar(snapshots: [], baseCurrency: "JPY")
         .padding()
+        .background(AppColors.background)
+        .preferredColorScheme(.dark)
 }

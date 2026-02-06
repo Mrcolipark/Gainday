@@ -1,5 +1,6 @@
 import SwiftUI
 
+/// 标的搜索页面 - 统一设计语言
 struct SymbolSearchView: View {
     @Environment(\.dismiss) private var dismiss
 
@@ -19,50 +20,38 @@ struct SymbolSearchView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
-                // Search mode picker
-                Picker("搜索类型", selection: $searchMode) {
-                    ForEach(SearchMode.allCases, id: \.self) { mode in
-                        Text(mode.rawValue).tag(mode)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .padding(.horizontal)
-                .padding(.vertical, 8)
+            ScrollView {
+                VStack(spacing: 20) {
+                    // 搜索框
+                    searchField
 
-                List {
+                    // 搜索类型选择
+                    searchModeSelector
+
+                    // 搜索结果
                     if isSearching {
-                        HStack {
-                            ProgressView()
-                                .padding(.trailing, 8)
-                            Text("搜索中...")
-                                .foregroundStyle(.secondary)
-                        }
+                        loadingView
                     } else if searchMode == .stocks {
                         stockResultsList
                     } else {
                         fundResultsList
                     }
                 }
+                .padding(16)
             }
+            .background(AppColors.background)
             .navigationTitle("搜索标的")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
-            .searchable(text: $searchText, prompt: searchMode == .stocks ? "输入代码或名称" : "输入基金代码或名称")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("取消") { dismiss() }
+                        .foregroundStyle(AppColors.textPrimary)
                 }
             }
-            .onChange(of: searchText) {
-                performSearch()
-            }
-            .onChange(of: searchMode) {
-                performSearch()
-            }
             .task {
-                // Load popular funds initially when in fund mode
+                // 初始加载热门基金
                 if searchMode == .funds && searchText.isEmpty {
                     fundResults = JapanFundService.popularFunds
                 }
@@ -70,113 +59,345 @@ struct SymbolSearchView: View {
         }
     }
 
-    // MARK: - Stock Results
+    // MARK: - 搜索框
+
+    private var searchField: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 16))
+                .foregroundStyle(AppColors.textTertiary)
+
+            TextField(
+                "",
+                text: $searchText,
+                prompt: Text(searchMode == .stocks ? "输入代码或名称" : "输入基金代码或名称")
+                    .foregroundStyle(AppColors.textTertiary)
+            )
+            .font(.system(size: 16))
+            .foregroundStyle(AppColors.textPrimary)
+            #if os(iOS)
+            .textInputAutocapitalization(.characters)
+            .autocorrectionDisabled()
+            #endif
+
+            if !searchText.isEmpty {
+                Button {
+                    searchText = ""
+                    results = []
+                    if searchMode == .funds {
+                        fundResults = JapanFundService.popularFunds
+                    }
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(AppColors.textTertiary)
+                }
+            }
+
+            if isSearching {
+                ProgressView()
+                    .scaleEffect(0.8)
+                    .tint(AppColors.textSecondary)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(AppColors.cardSurface)
+        )
+        .onChange(of: searchText) { _, _ in
+            performSearch()
+        }
+    }
+
+    // MARK: - 搜索类型选择
+
+    private var searchModeSelector: some View {
+        HStack(spacing: 0) {
+            ForEach(SearchMode.allCases, id: \.self) { mode in
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        searchMode = mode
+                        performSearch()
+                    }
+                } label: {
+                    Text(mode.rawValue)
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(searchMode == mode ? .white : AppColors.textSecondary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(
+                            searchMode == mode ?
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .fill(AppColors.profit) : nil
+                        )
+                }
+            }
+        }
+        .padding(4)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(AppColors.cardSurface)
+        )
+    }
+
+    // MARK: - 加载状态
+
+    private var loadingView: some View {
+        VStack(spacing: 12) {
+            ProgressView()
+                .scaleEffect(1.2)
+                .tint(AppColors.profit)
+
+            Text("搜索中...")
+                .font(.system(size: 14))
+                .foregroundStyle(AppColors.textSecondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 60)
+    }
+
+    // MARK: - 股票搜索结果
 
     @ViewBuilder
     private var stockResultsList: some View {
         if results.isEmpty && !searchText.isEmpty {
-            Text("无结果")
-                .foregroundStyle(.secondary)
+            emptyResultsView
+        } else if results.isEmpty && searchText.isEmpty {
+            searchPromptView
         } else {
-            ForEach(results, id: \.symbol) { result in
-                Button {
-                    let market = detectMarket(from: result)
-                    onSelect(result.symbol, result.shortname ?? result.longname ?? result.symbol, market)
-                    dismiss()
-                } label: {
-                    VStack(alignment: .leading, spacing: 4) {
-                        HStack {
-                            Text(result.symbol)
-                                .font(.subheadline.weight(.semibold))
-                            Spacer()
-                            if let exchange = result.exchDisp {
-                                Text(exchange)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                    .padding(.horizontal, 6)
-                                    .padding(.vertical, 2)
-                                    .background(Color.secondary.opacity(0.1), in: Capsule())
-                            }
-                        }
-                        if let name = result.shortname ?? result.longname {
-                            Text(name)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                                .lineLimit(1)
-                        }
-                        if let type = result.typeDisp {
-                            Text(type)
-                                .font(.caption2)
-                                .foregroundStyle(.tertiary)
+            VStack(alignment: .leading, spacing: 12) {
+                Text("搜索结果")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(AppColors.textSecondary)
+
+                VStack(spacing: 0) {
+                    ForEach(Array(results.enumerated()), id: \.element.symbol) { index, result in
+                        stockResultRow(result)
+
+                        if index < results.count - 1 {
+                            Divider()
+                                .background(AppColors.dividerColor)
+                                .padding(.leading, 52)
                         }
                     }
                 }
-                .foregroundStyle(.primary)
+                .background(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(AppColors.cardSurface)
+                )
             }
         }
     }
 
-    // MARK: - Fund Results
+    private func stockResultRow(_ result: MarketDataService.SearchQuote) -> some View {
+        Button {
+            let market = detectMarket(from: result)
+            onSelect(result.symbol, result.shortname ?? result.longname ?? result.symbol, market)
+            dismiss()
+        } label: {
+            HStack(spacing: 12) {
+                // 市场标识
+                ZStack {
+                    Circle()
+                        .fill(detectMarket(from: result).color.opacity(0.15))
+                        .frame(width: 36, height: 36)
+
+                    Text(detectMarket(from: result).flag)
+                        .font(.system(size: 16))
+                }
+
+                // 信息
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 8) {
+                        Text(result.symbol)
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(AppColors.textPrimary)
+
+                        if let exchange = result.exchDisp {
+                            Text(exchange)
+                                .font(.system(size: 11))
+                                .foregroundStyle(AppColors.textTertiary)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(
+                                    Capsule()
+                                        .fill(AppColors.elevatedSurface)
+                                )
+                        }
+                    }
+
+                    if let name = result.shortname ?? result.longname {
+                        Text(name)
+                            .font(.system(size: 13))
+                            .foregroundStyle(AppColors.textSecondary)
+                            .lineLimit(1)
+                    }
+
+                    if let type = result.typeDisp {
+                        Text(type)
+                            .font(.system(size: 11))
+                            .foregroundStyle(AppColors.textTertiary)
+                    }
+                }
+
+                Spacer()
+
+                Image(systemName: "plus.circle")
+                    .font(.system(size: 20))
+                    .foregroundStyle(AppColors.profit)
+            }
+            .padding(16)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: - 基金搜索结果
 
     @ViewBuilder
     private var fundResultsList: some View {
         if fundResults.isEmpty && !searchText.isEmpty {
-            Text("无结果")
-                .foregroundStyle(.secondary)
+            emptyResultsView
         } else {
-            // Show popular funds header when no search
-            if searchText.isEmpty {
-                Section {
-                    ForEach(fundResults, id: \.code) { fund in
-                        fundRow(fund)
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 6) {
+                    Image(systemName: searchText.isEmpty ? "star.fill" : "magnifyingglass")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(searchText.isEmpty ? .orange : AppColors.profit)
+
+                    Text(searchText.isEmpty ? "人气基金" : "搜索结果")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(AppColors.textSecondary)
+                }
+
+                VStack(spacing: 0) {
+                    ForEach(Array(fundResults.enumerated()), id: \.element.code) { index, fund in
+                        fundResultRow(fund)
+
+                        if index < fundResults.count - 1 {
+                            Divider()
+                                .background(AppColors.dividerColor)
+                                .padding(.leading, 52)
+                        }
                     }
-                } header: {
-                    Label("人気ファンド", systemImage: "star.fill")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.orange)
                 }
-            } else {
-                ForEach(fundResults, id: \.code) { fund in
-                    fundRow(fund)
-                }
+                .background(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(AppColors.cardSurface)
+                )
             }
         }
     }
 
-    private func fundRow(_ fund: JapanFundService.FundSearchResult) -> some View {
+    private func fundResultRow(_ fund: JapanFundService.FundSearchResult) -> some View {
         Button {
             onSelect(fund.code, fund.name, .JP_FUND)
             dismiss()
         } label: {
-            VStack(alignment: .leading, spacing: 4) {
-                HStack {
-                    Text(fund.code)
-                        .font(.system(.subheadline, design: .monospaced, weight: .semibold))
-                    Spacer()
-                    if let category = fund.category {
-                        Text(category)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Color.purple.opacity(0.1), in: Capsule())
+            HStack(spacing: 12) {
+                // 基金图标
+                ZStack {
+                    Circle()
+                        .fill(Color.purple.opacity(0.15))
+                        .frame(width: 36, height: 36)
+
+                    Image(systemName: "chart.pie.fill")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(.purple)
+                }
+
+                // 信息
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 8) {
+                        Text(fund.code)
+                            .font(.system(size: 15, weight: .semibold, design: .monospaced))
+                            .foregroundStyle(AppColors.textPrimary)
+
+                        if let category = fund.category {
+                            Text(category)
+                                .font(.system(size: 11))
+                                .foregroundStyle(.purple)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(
+                                    Capsule()
+                                        .fill(Color.purple.opacity(0.1))
+                                )
+                        }
+                    }
+
+                    Text(fund.name)
+                        .font(.system(size: 13))
+                        .foregroundStyle(AppColors.textSecondary)
+                        .lineLimit(2)
+
+                    if let company = fund.managementCompany {
+                        Text(company)
+                            .font(.system(size: 11))
+                            .foregroundStyle(AppColors.textTertiary)
                     }
                 }
-                Text(fund.name)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
-                if let company = fund.managementCompany {
-                    Text(company)
-                        .font(.caption2)
-                        .foregroundStyle(.tertiary)
-                }
+
+                Spacer()
+
+                Image(systemName: "plus.circle")
+                    .font(.system(size: 20))
+                    .foregroundStyle(AppColors.profit)
             }
+            .padding(16)
+            .contentShape(Rectangle())
         }
-        .foregroundStyle(.primary)
+        .buttonStyle(.plain)
     }
 
-    // MARK: - Search Logic
+    // MARK: - 空状态
+
+    private var emptyResultsView: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 32))
+                .foregroundStyle(AppColors.textTertiary)
+
+            Text("未找到相关标的")
+                .font(.system(size: 15))
+                .foregroundStyle(AppColors.textSecondary)
+
+            Text("请尝试其他关键词")
+                .font(.system(size: 13))
+                .foregroundStyle(AppColors.textTertiary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 60)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(AppColors.cardSurface)
+        )
+    }
+
+    private var searchPromptView: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "text.magnifyingglass")
+                .font(.system(size: 32))
+                .foregroundStyle(AppColors.textTertiary)
+
+            Text("输入代码或名称开始搜索")
+                .font(.system(size: 15))
+                .foregroundStyle(AppColors.textSecondary)
+
+            Text("支持美股、日股、港股、A股等")
+                .font(.system(size: 13))
+                .foregroundStyle(AppColors.textTertiary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 60)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(AppColors.cardSurface)
+        )
+    }
+
+    // MARK: - 搜索逻辑
 
     private func performSearch() {
         searchTask?.cancel()
@@ -213,7 +434,6 @@ struct SymbolSearchView: View {
 
     private func searchFunds() async {
         if searchText.isEmpty {
-            // Show popular funds when no search query
             fundResults = JapanFundService.popularFunds
             return
         }
@@ -244,6 +464,22 @@ struct SymbolSearchView: View {
     }
 }
 
+// MARK: - Market Extension
+
+private extension Market {
+    var color: Color {
+        switch self {
+        case .US: return .blue
+        case .JP, .JP_FUND: return .red
+        case .HK: return .orange
+        case .CN: return .yellow
+        case .CRYPTO: return .purple
+        case .COMMODITY: return .brown
+        }
+    }
+}
+
 #Preview {
     SymbolSearchView { _, _, _ in }
+        .preferredColorScheme(.dark)
 }

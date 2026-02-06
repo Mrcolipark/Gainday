@@ -1,136 +1,15 @@
 import Foundation
 import SwiftData
 
-actor SnapshotService {
+@MainActor
+class SnapshotService {
     static let shared = SnapshotService()
 
     private init() {}
 
-    func generateDailySnapshot(
-        portfolios: [Portfolio],
-        quotes: [String: MarketDataService.QuoteData],
-        rates: [String: Double],
-        baseCurrency: String,
-        modelContext: ModelContext
-    ) async -> DailySnapshot {
-        let today = Date().startOfDay
-        let calcService = PnLCalculationService.shared
+    // MARK: - 生成每日快照
 
-        var totalValue: Double = 0
-        var totalCost: Double = 0
-        var dailyPnL: Double = 0
-        var breakdownItems: [AssetBreakdown] = []
-
-        var assetTypeValues: [String: (value: Double, cost: Double, pnl: Double)] = [:]
-
-        for portfolio in portfolios {
-            let portfolioPnL = calcService.calculatePortfolioPnL(
-                portfolio: portfolio,
-                quotes: quotes,
-                rates: rates
-            )
-
-            let portfolioCurrency = portfolio.baseCurrency
-            let portfolioRate = rates["\(portfolioCurrency)\(baseCurrency)"] ?? 1.0
-
-            totalValue += portfolioPnL.totalValue * portfolioRate
-            totalCost += portfolioPnL.totalCost * portfolioRate
-            dailyPnL += portfolioPnL.dailyPnL * portfolioRate
-
-            for hpnl in portfolioPnL.holdingPnLs {
-                let assetType = hpnl.holding.assetType
-                var existing = assetTypeValues[assetType] ?? (value: 0, cost: 0, pnl: 0)
-                existing.value += hpnl.marketValue * portfolioRate
-                existing.cost += hpnl.costBasis * portfolioRate
-                existing.pnl += hpnl.dailyPnL * portfolioRate
-                assetTypeValues[assetType] = existing
-            }
-        }
-
-        for (assetType, values) in assetTypeValues {
-            breakdownItems.append(AssetBreakdown(
-                assetType: assetType,
-                value: values.value,
-                cost: values.cost,
-                pnl: values.pnl,
-                currency: baseCurrency
-            ))
-        }
-
-        let dailyPnLPercent = (totalValue - dailyPnL) > 0
-            ? (dailyPnL / (totalValue - dailyPnL)) * 100
-            : 0
-        let cumulativePnL = totalValue - totalCost
-
-        let snapshot = DailySnapshot(
-            date: today,
-            totalValue: totalValue,
-            totalCost: totalCost,
-            dailyPnL: dailyPnL,
-            dailyPnLPercent: dailyPnLPercent,
-            cumulativePnL: cumulativePnL
-        )
-        snapshot.setBreakdown(breakdownItems)
-
-        return snapshot
-    }
-
-    func fetchSnapshots(
-        for month: Date,
-        modelContext: ModelContext
-    ) throws -> [DailySnapshot] {
-        let startOfMonth = month.startOfMonth
-        let endOfMonth = month.endOfMonth.adding(days: 1)
-
-        let predicate = #Predicate<DailySnapshot> {
-            $0.date >= startOfMonth && $0.date < endOfMonth
-        }
-        let descriptor = FetchDescriptor<DailySnapshot>(
-            predicate: predicate,
-            sortBy: [SortDescriptor(\.date)]
-        )
-
-        return try modelContext.fetch(descriptor)
-    }
-
-    func fetchSnapshots(
-        from startDate: Date,
-        to endDate: Date,
-        modelContext: ModelContext
-    ) throws -> [DailySnapshot] {
-        let start = startDate.startOfDay
-        let end = endDate.adding(days: 1).startOfDay
-
-        let predicate = #Predicate<DailySnapshot> {
-            $0.date >= start && $0.date < end
-        }
-        let descriptor = FetchDescriptor<DailySnapshot>(
-            predicate: predicate,
-            sortBy: [SortDescriptor(\.date)]
-        )
-
-        return try modelContext.fetch(descriptor)
-    }
-
-    func snapshotExists(for date: Date, modelContext: ModelContext) throws -> Bool {
-        let dayStart = date.startOfDay
-        let dayEnd = date.adding(days: 1).startOfDay
-
-        let predicate = #Predicate<DailySnapshot> {
-            $0.date >= dayStart && $0.date < dayEnd
-        }
-        var descriptor = FetchDescriptor<DailySnapshot>(predicate: predicate)
-        descriptor.fetchLimit = 1
-
-        let count = try modelContext.fetchCount(descriptor)
-        return count > 0
-    }
-
-    // MARK: - Auto-generate Today's Snapshot
-
-    /// 检查并生成今日快照（如果不存在或需要更新）
-    /// 在每次刷新数据后调用
-    @MainActor
+    /// 生成今日快照 - 为每个账户生成独立快照 + 全局汇总快照
     func saveOrUpdateTodaySnapshot(
         portfolios: [Portfolio],
         quotes: [String: MarketDataService.QuoteData],
@@ -148,73 +27,699 @@ actor SnapshotService {
         let hasHoldings = portfolios.contains { !$0.holdings.isEmpty }
         guard hasHoldings else { return }
 
-        // 生成新快照
-        let newSnapshot = await generateDailySnapshot(
-            portfolios: portfolios,
-            quotes: quotes,
-            rates: rates,
-            baseCurrency: baseCurrency,
-            modelContext: modelContext
-        )
+        let calcService = PnLCalculationService.shared
 
-        // 检查今日是否已有快照
+        // 全局汇总数据
+        var globalValue: Double = 0
+        var globalCost: Double = 0
+        var globalDailyPnL: Double = 0
+        var assetTypeValues: [String: (value: Double, cost: Double, pnl: Double)] = [:]
+        var allHoldingPnLs: [HoldingDailyPnL] = []
+
         do {
-            let dayStart = today
-            let dayEnd = today.adding(days: 1)
+            // 为每个账户生成独立快照
+            for portfolio in portfolios {
+                guard !portfolio.holdings.isEmpty else { continue }
 
-            let predicate = #Predicate<DailySnapshot> {
-                $0.date >= dayStart && $0.date < dayEnd
+                let portfolioPnL = calcService.calculatePortfolioPnL(
+                    portfolio: portfolio,
+                    quotes: quotes,
+                    rates: rates
+                )
+
+                let portfolioCurrency = portfolio.baseCurrency
+                let portfolioRate = rates["\(portfolioCurrency)\(baseCurrency)"] ?? 1.0
+
+                let valueInBase = portfolioPnL.totalValue * portfolioRate
+                let costInBase = portfolioPnL.totalCost * portfolioRate
+                let dailyPnLInBase = portfolioPnL.dailyPnL * portfolioRate
+
+                // 累加到全局
+                globalValue += valueInBase
+                globalCost += costInBase
+                globalDailyPnL += dailyPnLInBase
+
+                // 资产类型分解 + 个股盈亏
+                for hpnl in portfolioPnL.holdingPnLs {
+                    let assetType = hpnl.holding.assetType
+                    var existing = assetTypeValues[assetType] ?? (value: 0, cost: 0, pnl: 0)
+                    existing.value += hpnl.marketValue * portfolioRate
+                    existing.cost += hpnl.costBasis * portfolioRate
+                    existing.pnl += hpnl.dailyPnL * portfolioRate
+                    assetTypeValues[assetType] = existing
+
+                    // 收集个股盈亏
+                    let holdingDailyPnL = HoldingDailyPnL(
+                        symbol: hpnl.holding.symbol,
+                        name: hpnl.holding.name,
+                        dailyPnL: hpnl.dailyPnL * portfolioRate,
+                        dailyPnLPercent: hpnl.dailyPnLPercent,
+                        marketValue: hpnl.marketValue * portfolioRate
+                    )
+                    allHoldingPnLs.append(holdingDailyPnL)
+                }
+
+                // 计算账户级别的百分比
+                let dailyPnLPercent = (valueInBase - dailyPnLInBase) > 0
+                    ? (dailyPnLInBase / (valueInBase - dailyPnLInBase)) * 100
+                    : 0
+
+                // 保存或更新账户快照
+                try saveOrUpdateSnapshot(
+                    date: today,
+                    portfolioID: portfolio.id.uuidString,
+                    totalValue: valueInBase,
+                    totalCost: costInBase,
+                    dailyPnL: dailyPnLInBase,
+                    dailyPnLPercent: dailyPnLPercent,
+                    cumulativePnL: valueInBase - costInBase,
+                    modelContext: modelContext
+                )
             }
-            var descriptor = FetchDescriptor<DailySnapshot>(predicate: predicate)
-            descriptor.fetchLimit = 1
 
-            let existing = try modelContext.fetch(descriptor)
+            // 生成全局汇总快照
+            let globalDailyPnLPercent = (globalValue - globalDailyPnL) > 0
+                ? (globalDailyPnL / (globalValue - globalDailyPnL)) * 100
+                : 0
 
-            if let existingSnapshot = existing.first {
-                // 更新现有快照
-                existingSnapshot.totalValue = newSnapshot.totalValue
-                existingSnapshot.totalCost = newSnapshot.totalCost
-                existingSnapshot.dailyPnL = newSnapshot.dailyPnL
-                existingSnapshot.dailyPnLPercent = newSnapshot.dailyPnLPercent
-                existingSnapshot.cumulativePnL = newSnapshot.cumulativePnL
-                existingSnapshot.breakdownJSON = newSnapshot.breakdownJSON
-            } else {
-                // 插入新快照
-                modelContext.insert(newSnapshot)
+            var breakdownItems: [AssetBreakdown] = []
+            for (assetType, values) in assetTypeValues {
+                breakdownItems.append(AssetBreakdown(
+                    assetType: assetType,
+                    value: values.value,
+                    cost: values.cost,
+                    pnl: values.pnl,
+                    currency: baseCurrency
+                ))
             }
+
+            try saveOrUpdateSnapshot(
+                date: today,
+                portfolioID: nil,
+                totalValue: globalValue,
+                totalCost: globalCost,
+                dailyPnL: globalDailyPnL,
+                dailyPnLPercent: globalDailyPnLPercent,
+                cumulativePnL: globalValue - globalCost,
+                breakdown: breakdownItems,
+                holdingPnLs: allHoldingPnLs,
+                modelContext: modelContext
+            )
 
             try modelContext.save()
         } catch {
-            // 静默失败，不影响用户体验
-            print("Failed to save snapshot: \(error)")
+            print("Failed to save snapshots: \(error)")
         }
     }
 
-    /// 获取最近一个交易日的快照
-    func getLatestSnapshot(modelContext: ModelContext) throws -> DailySnapshot? {
-        var descriptor = FetchDescriptor<DailySnapshot>(
-            sortBy: [SortDescriptor(\.date, order: .reverse)]
-        )
-        descriptor.fetchLimit = 1
-        return try modelContext.fetch(descriptor).first
+    /// 保存或更新单个快照
+    private func saveOrUpdateSnapshot(
+        date: Date,
+        portfolioID: String?,
+        totalValue: Double,
+        totalCost: Double,
+        dailyPnL: Double,
+        dailyPnLPercent: Double,
+        cumulativePnL: Double,
+        breakdown: [AssetBreakdown] = [],
+        holdingPnLs: [HoldingDailyPnL] = [],
+        modelContext: ModelContext
+    ) throws {
+        let dayStart = date.startOfDay
+        let dayEnd = date.adding(days: 1).startOfDay
+
+        // 查找现有快照
+        let existing: DailySnapshot? = try {
+            let allSnapshots = try modelContext.fetch(FetchDescriptor<DailySnapshot>())
+            return allSnapshots.first { snap in
+                snap.date >= dayStart && snap.date < dayEnd && snap.portfolioID == portfolioID
+            }
+        }()
+
+        if let existingSnapshot = existing {
+            // 更新现有快照
+            existingSnapshot.totalValue = totalValue
+            existingSnapshot.totalCost = totalCost
+            existingSnapshot.dailyPnL = dailyPnL
+            existingSnapshot.dailyPnLPercent = dailyPnLPercent
+            existingSnapshot.cumulativePnL = cumulativePnL
+            if !breakdown.isEmpty {
+                existingSnapshot.setBreakdown(breakdown)
+            }
+            if !holdingPnLs.isEmpty {
+                existingSnapshot.setHoldingPnLs(holdingPnLs)
+            }
+        } else {
+            // 创建新快照
+            let snapshot = DailySnapshot(
+                date: dayStart,
+                totalValue: totalValue,
+                totalCost: totalCost,
+                dailyPnL: dailyPnL,
+                dailyPnLPercent: dailyPnLPercent,
+                cumulativePnL: cumulativePnL,
+                portfolioID: portfolioID
+            )
+            if !breakdown.isEmpty {
+                snapshot.setBreakdown(breakdown)
+            }
+            if !holdingPnLs.isEmpty {
+                snapshot.setHoldingPnLs(holdingPnLs)
+            }
+            modelContext.insert(snapshot)
+        }
+    }
+
+    // MARK: - 查询快照
+
+    /// 获取指定月份的快照（支持按账户筛选）
+    func fetchSnapshots(
+        for month: Date,
+        portfolioID: String? = nil,
+        modelContext: ModelContext
+    ) throws -> [DailySnapshot] {
+        let startOfMonth = month.startOfMonth
+        let endOfMonth = month.endOfMonth.adding(days: 1)
+
+        let allSnapshots = try modelContext.fetch(FetchDescriptor<DailySnapshot>())
+
+        return allSnapshots.filter { snap in
+            snap.date >= startOfMonth && snap.date < endOfMonth && snap.portfolioID == portfolioID
+        }.sorted { $0.date < $1.date }
+    }
+
+    /// 获取指定日期范围的快照
+    func fetchSnapshots(
+        from startDate: Date,
+        to endDate: Date,
+        portfolioID: String? = nil,
+        modelContext: ModelContext
+    ) throws -> [DailySnapshot] {
+        let start = startDate.startOfDay
+        let end = endDate.adding(days: 1).startOfDay
+
+        let allSnapshots = try modelContext.fetch(FetchDescriptor<DailySnapshot>())
+
+        return allSnapshots.filter { snap in
+            snap.date >= start && snap.date < end && snap.portfolioID == portfolioID
+        }.sorted { $0.date < $1.date }
     }
 
     /// 获取年度所有快照（用于年度热力图）
-    func fetchYearSnapshots(year: Int, modelContext: ModelContext) throws -> [DailySnapshot] {
+    func fetchYearSnapshots(
+        year: Int,
+        portfolioID: String? = nil,
+        modelContext: ModelContext
+    ) throws -> [DailySnapshot] {
         let calendar = Calendar.current
         guard let startOfYear = calendar.date(from: DateComponents(year: year, month: 1, day: 1)),
               let endOfYear = calendar.date(from: DateComponents(year: year + 1, month: 1, day: 1)) else {
             return []
         }
 
-        let predicate = #Predicate<DailySnapshot> {
-            $0.date >= startOfYear && $0.date < endOfYear
-        }
-        let descriptor = FetchDescriptor<DailySnapshot>(
-            predicate: predicate,
-            sortBy: [SortDescriptor(\.date)]
-        )
+        let allSnapshots = try modelContext.fetch(FetchDescriptor<DailySnapshot>())
 
-        return try modelContext.fetch(descriptor)
+        return allSnapshots.filter { snap in
+            snap.date >= startOfYear && snap.date < endOfYear && snap.portfolioID == portfolioID
+        }.sorted { $0.date < $1.date }
+    }
+
+    /// 获取最近一个交易日的全局快照
+    func getLatestSnapshot(modelContext: ModelContext) throws -> DailySnapshot? {
+        let allSnapshots = try modelContext.fetch(FetchDescriptor<DailySnapshot>())
+
+        return allSnapshots
+            .filter { $0.portfolioID == nil }
+            .sorted { $0.date > $1.date }
+            .first
+    }
+
+    /// 检查指定日期是否存在全局快照
+    func snapshotExists(for date: Date, modelContext: ModelContext) throws -> Bool {
+        let dayStart = date.startOfDay
+        let dayEnd = date.adding(days: 1).startOfDay
+
+        let allSnapshots = try modelContext.fetch(FetchDescriptor<DailySnapshot>())
+
+        return allSnapshots.contains { snap in
+            snap.date >= dayStart && snap.date < dayEnd && snap.portfolioID == nil
+        }
+    }
+
+    // MARK: - 历史数据迁移
+
+    /// 为账户生成历史快照数据（基于交易记录和历史价格）
+    func migrateHistoricalSnapshots(
+        portfolios: [Portfolio],
+        baseCurrency: String,
+        modelContext: ModelContext
+    ) async {
+        do {
+            let allSnapshots = try modelContext.fetch(FetchDescriptor<DailySnapshot>())
+            print("[Migration] Total snapshots in DB: \(allSnapshots.count)")
+
+            // 找出每个账户已有快照的日期
+            var existingDatesPerPortfolio: [String: Set<Date>] = [:]
+            for snapshot in allSnapshots {
+                if let portfolioID = snapshot.portfolioID {
+                    var dates = existingDatesPerPortfolio[portfolioID] ?? []
+                    dates.insert(snapshot.date.startOfDay)
+                    existingDatesPerPortfolio[portfolioID] = dates
+                }
+            }
+
+            // 收集所有股票代码
+            var allSymbols: Set<String> = []
+            var symbolMarkets: [String: Market] = [:]
+            for portfolio in portfolios {
+                for holding in portfolio.holdings {
+                    allSymbols.insert(holding.symbol)
+                    symbolMarkets[holding.symbol] = holding.marketEnum
+                }
+            }
+
+            guard !allSymbols.isEmpty else {
+                print("[Migration] No holdings found, skipping")
+                return
+            }
+
+            // 获取历史价格
+            print("[Migration] Fetching historical prices for \(allSymbols.count) symbols...")
+            var historicalPrices: [String: [Date: Double]] = [:]
+            for symbol in allSymbols {
+                let market = symbolMarkets[symbol] ?? .US
+                if market == .JP_FUND {
+                    print("[Migration] Skipping JP_FUND: \(symbol)")
+                    continue
+                }
+
+                if let chartData = try? await MarketDataService.shared.fetchChartData(
+                    symbol: symbol,
+                    interval: "1d",
+                    range: "1y"
+                ) {
+                    var priceMap: [Date: Double] = [:]
+                    for data in chartData {
+                        priceMap[data.date.startOfDay] = data.close
+                    }
+                    historicalPrices[symbol] = priceMap
+                    print("[Migration] Got \(priceMap.count) days of prices for \(symbol)")
+                } else {
+                    print("[Migration] Failed to fetch prices for \(symbol)")
+                }
+            }
+
+            // 获取所有可用的历史日期（从价格数据中提取）
+            var allAvailableDates: Set<Date> = []
+            for (_, priceMap) in historicalPrices {
+                for date in priceMap.keys {
+                    allAvailableDates.insert(date)
+                }
+            }
+
+            // 过滤掉周末
+            let calendar = Calendar.current
+            let tradingDates = allAvailableDates.filter { date in
+                let weekday = calendar.component(.weekday, from: date)
+                return weekday != 1 && weekday != 7
+            }.sorted()
+
+            print("[Migration] Available trading dates: \(tradingDates.count)")
+
+            // 收集所有需要的货币
+            var allCurrencies: Set<String> = [baseCurrency]
+            for portfolio in portfolios {
+                allCurrencies.insert(portfolio.baseCurrency)
+                for holding in portfolio.holdings {
+                    allCurrencies.insert(holding.currency)
+                }
+            }
+
+            // 获取历史汇率数据（1年）
+            print("[Migration] Loading historical exchange rates...")
+            let historicalRates = await CurrencyService.shared.loadAllHistoricalRates(currencies: allCurrencies)
+            print("[Migration] Loaded historical rates for \(historicalRates.count) currency pairs")
+
+            // 辅助函数：获取指定日期的汇率（向前回溯查找）
+            func getRateForDate(_ key: String, date: Date) -> Double {
+                guard let ratesForPair = historicalRates[key] else { return 1.0 }
+
+                // 尝试获取当天汇率
+                if let rate = ratesForPair[date] {
+                    return rate
+                }
+
+                // 向前回溯最多5天
+                var lookbackDate = date
+                for _ in 0..<5 {
+                    lookbackDate = lookbackDate.adding(days: -1).startOfDay
+                    if let rate = ratesForPair[lookbackDate] {
+                        return rate
+                    }
+                }
+
+                // 返回最近的任意汇率
+                if let latestRate = ratesForPair.values.first {
+                    return latestRate
+                }
+
+                return 1.0
+            }
+
+            // 为每个账户生成缺失日期的快照
+            var createdCount = 0
+            for portfolio in portfolios {
+                let portfolioID = portfolio.id.uuidString
+                let existingDates = existingDatesPerPortfolio[portfolioID] ?? []
+                let portfolioCurrency = portfolio.baseCurrency
+
+                for snapshotDate in tradingDates {
+                    // 跳过已有快照的日期
+                    guard !existingDates.contains(snapshotDate) else { continue }
+
+                    // 获取当天的汇率（账户货币 -> 全局基准货币）
+                    let portfolioToBaseRate: Double
+                    if portfolioCurrency == baseCurrency {
+                        portfolioToBaseRate = 1.0
+                    } else {
+                        portfolioToBaseRate = getRateForDate("\(portfolioCurrency)\(baseCurrency)", date: snapshotDate)
+                    }
+
+                    var portfolioValue: Double = 0
+                    var portfolioCost: Double = 0
+                    var portfolioDailyPnL: Double = 0
+
+                    for holding in portfolio.holdings {
+                        let quantity = holding.quantityAt(date: snapshotDate)
+                        guard quantity > 0 else { continue }
+
+                        let cost = holding.totalCostAt(date: snapshotDate)
+                        let price = historicalPrices[holding.symbol]?[snapshotDate] ?? 0
+                        guard price > 0 else { continue }
+
+                        // 获取当天的汇率（持仓货币 -> 账户货币）
+                        let holdingCurrency = holding.currency
+                        let holdingToPortfolioRate: Double
+                        if holdingCurrency == portfolioCurrency {
+                            holdingToPortfolioRate = 1.0
+                        } else {
+                            holdingToPortfolioRate = getRateForDate("\(holdingCurrency)\(portfolioCurrency)", date: snapshotDate)
+                        }
+
+                        let marketValue = quantity * price * holdingToPortfolioRate
+
+                        // 查找前一个交易日的价格（跳过周末和假日）
+                        var prevPrice: Double = price
+                        var lookbackDate = snapshotDate.adding(days: -1).startOfDay
+                        for _ in 0..<5 { // 最多回溯5天
+                            if let foundPrice = historicalPrices[holding.symbol]?[lookbackDate] {
+                                prevPrice = foundPrice
+                                break
+                            }
+                            lookbackDate = lookbackDate.adding(days: -1).startOfDay
+                        }
+
+                        let dailyPnL = quantity * (price - prevPrice) * holdingToPortfolioRate
+
+                        portfolioValue += marketValue
+                        portfolioCost += cost * holdingToPortfolioRate
+                        portfolioDailyPnL += dailyPnL
+                    }
+
+                    // 跳过没有持仓的日期
+                    guard portfolioValue > 0 else { continue }
+
+                    let valueInBase = portfolioValue * portfolioToBaseRate
+                    let costInBase = portfolioCost * portfolioToBaseRate
+                    let dailyPnLInBase = portfolioDailyPnL * portfolioToBaseRate
+
+                    let dailyPnLPercent = (valueInBase - dailyPnLInBase) > 0
+                        ? (dailyPnLInBase / (valueInBase - dailyPnLInBase)) * 100
+                        : 0
+
+                    let snapshot = DailySnapshot(
+                        date: snapshotDate,
+                        totalValue: valueInBase,
+                        totalCost: costInBase,
+                        dailyPnL: dailyPnLInBase,
+                        dailyPnLPercent: dailyPnLPercent,
+                        cumulativePnL: valueInBase - costInBase,
+                        portfolioID: portfolioID
+                    )
+                    modelContext.insert(snapshot)
+                    createdCount += 1
+                }
+            }
+
+            // 同时生成缺失的全局快照
+            let existingGlobalDates = Set(allSnapshots.filter { $0.portfolioID == nil }.map { $0.date.startOfDay })
+            var globalCreatedCount = 0
+
+            for snapshotDate in tradingDates {
+                guard !existingGlobalDates.contains(snapshotDate) else { continue }
+
+                var globalValue: Double = 0
+                var globalCost: Double = 0
+                var globalDailyPnL: Double = 0
+                var holdingPnLList: [HoldingDailyPnL] = []
+
+                for portfolio in portfolios {
+                    let portfolioCurrency = portfolio.baseCurrency
+
+                    // 获取当天的汇率（账户货币 -> 全局基准货币）
+                    let portfolioToBaseRate: Double
+                    if portfolioCurrency == baseCurrency {
+                        portfolioToBaseRate = 1.0
+                    } else {
+                        portfolioToBaseRate = getRateForDate("\(portfolioCurrency)\(baseCurrency)", date: snapshotDate)
+                    }
+
+                    for holding in portfolio.holdings {
+                        let quantity = holding.quantityAt(date: snapshotDate)
+                        guard quantity > 0 else { continue }
+
+                        let cost = holding.totalCostAt(date: snapshotDate)
+                        let price = historicalPrices[holding.symbol]?[snapshotDate] ?? 0
+                        guard price > 0 else { continue }
+
+                        // 获取当天的汇率（持仓货币 -> 账户货币）
+                        let holdingCurrency = holding.currency
+                        let holdingToPortfolioRate: Double
+                        if holdingCurrency == portfolioCurrency {
+                            holdingToPortfolioRate = 1.0
+                        } else {
+                            holdingToPortfolioRate = getRateForDate("\(holdingCurrency)\(portfolioCurrency)", date: snapshotDate)
+                        }
+
+                        // 组合汇率：持仓货币 -> 账户货币 -> 全局基准货币
+                        let holdingToBaseRate = holdingToPortfolioRate * portfolioToBaseRate
+
+                        let marketValue = quantity * price * holdingToBaseRate
+
+                        // 查找前一个交易日的价格
+                        var prevPrice: Double = price
+                        var lookbackDate = snapshotDate.adding(days: -1).startOfDay
+                        for _ in 0..<5 {
+                            if let foundPrice = historicalPrices[holding.symbol]?[lookbackDate] {
+                                prevPrice = foundPrice
+                                break
+                            }
+                            lookbackDate = lookbackDate.adding(days: -1).startOfDay
+                        }
+
+                        let dailyPnL = quantity * (price - prevPrice) * holdingToBaseRate
+                        let dailyPnLPercent = prevPrice > 0 ? ((price - prevPrice) / prevPrice) * 100 : 0
+
+                        globalValue += marketValue
+                        globalCost += cost * holdingToBaseRate
+                        globalDailyPnL += dailyPnL
+
+                        // 收集个股盈亏
+                        holdingPnLList.append(HoldingDailyPnL(
+                            symbol: holding.symbol,
+                            name: holding.name,
+                            dailyPnL: dailyPnL,
+                            dailyPnLPercent: dailyPnLPercent,
+                            marketValue: marketValue
+                        ))
+                    }
+                }
+
+                guard globalValue > 0 else { continue }
+
+                let globalDailyPnLPercent = (globalValue - globalDailyPnL) > 0
+                    ? (globalDailyPnL / (globalValue - globalDailyPnL)) * 100
+                    : 0
+
+                let globalSnapshot = DailySnapshot(
+                    date: snapshotDate,
+                    totalValue: globalValue,
+                    totalCost: globalCost,
+                    dailyPnL: globalDailyPnL,
+                    dailyPnLPercent: globalDailyPnLPercent,
+                    cumulativePnL: globalValue - globalCost,
+                    portfolioID: nil
+                )
+                globalSnapshot.setHoldingPnLs(holdingPnLList)
+                modelContext.insert(globalSnapshot)
+                globalCreatedCount += 1
+            }
+
+            let totalCreated = createdCount + globalCreatedCount
+            if totalCreated > 0 {
+                try modelContext.save()
+                print("[Migration] Created \(createdCount) portfolio + \(globalCreatedCount) global snapshots")
+            } else {
+                print("[Migration] No new snapshots needed")
+            }
+        } catch {
+            print("[Migration] Failed: \(error)")
+        }
+    }
+
+    // MARK: - 更新现有快照的个股盈亏数据
+
+    /// 为现有的全局快照补充个股盈亏数据
+    func updateSnapshotsWithHoldingPnL(
+        portfolios: [Portfolio],
+        baseCurrency: String,
+        modelContext: ModelContext
+    ) async {
+        do {
+            let allSnapshots = try modelContext.fetch(FetchDescriptor<DailySnapshot>())
+
+            // 找出需要更新的全局快照（没有个股盈亏数据的）
+            let snapshotsToUpdate = allSnapshots.filter { snapshot in
+                snapshot.portfolioID == nil && snapshot.holdingPnLs.isEmpty
+            }
+
+            guard !snapshotsToUpdate.isEmpty else {
+                print("[UpdateHoldingPnL] No snapshots need updating")
+                return
+            }
+
+            print("[UpdateHoldingPnL] Found \(snapshotsToUpdate.count) snapshots to update")
+
+            // 收集所有股票代码
+            var allSymbols: Set<String> = []
+            var symbolMarkets: [String: Market] = [:]
+            for portfolio in portfolios {
+                for holding in portfolio.holdings {
+                    allSymbols.insert(holding.symbol)
+                    symbolMarkets[holding.symbol] = holding.marketEnum
+                }
+            }
+
+            guard !allSymbols.isEmpty else {
+                print("[UpdateHoldingPnL] No holdings found")
+                return
+            }
+
+            // 获取历史价格
+            print("[UpdateHoldingPnL] Fetching historical prices...")
+            var historicalPrices: [String: [Date: Double]] = [:]
+            for symbol in allSymbols {
+                let market = symbolMarkets[symbol] ?? .US
+                if market == .JP_FUND { continue }
+
+                if let chartData = try? await MarketDataService.shared.fetchChartData(
+                    symbol: symbol,
+                    interval: "1d",
+                    range: "1y"
+                ) {
+                    var priceMap: [Date: Double] = [:]
+                    for data in chartData {
+                        priceMap[data.date.startOfDay] = data.close
+                    }
+                    historicalPrices[symbol] = priceMap
+                }
+            }
+
+            // 收集所有需要的货币
+            var allCurrencies: Set<String> = [baseCurrency]
+            for portfolio in portfolios {
+                allCurrencies.insert(portfolio.baseCurrency)
+                for holding in portfolio.holdings {
+                    allCurrencies.insert(holding.currency)
+                }
+            }
+
+            // 获取历史汇率
+            let historicalRates = await CurrencyService.shared.loadAllHistoricalRates(currencies: allCurrencies)
+
+            // 辅助函数
+            func getRateForDate(_ key: String, date: Date) -> Double {
+                guard let ratesForPair = historicalRates[key] else { return 1.0 }
+                if let rate = ratesForPair[date] { return rate }
+                var lookbackDate = date
+                for _ in 0..<5 {
+                    lookbackDate = lookbackDate.adding(days: -1).startOfDay
+                    if let rate = ratesForPair[lookbackDate] { return rate }
+                }
+                return ratesForPair.values.first ?? 1.0
+            }
+
+            // 更新每个快照
+            var updatedCount = 0
+            for snapshot in snapshotsToUpdate {
+                let snapshotDate = snapshot.date.startOfDay
+                var holdingPnLList: [HoldingDailyPnL] = []
+
+                for portfolio in portfolios {
+                    let portfolioCurrency = portfolio.baseCurrency
+                    let portfolioToBaseRate: Double = portfolioCurrency == baseCurrency ? 1.0 :
+                        getRateForDate("\(portfolioCurrency)\(baseCurrency)", date: snapshotDate)
+
+                    for holding in portfolio.holdings {
+                        let quantity = holding.quantityAt(date: snapshotDate)
+                        guard quantity > 0 else { continue }
+
+                        let price = historicalPrices[holding.symbol]?[snapshotDate] ?? 0
+                        guard price > 0 else { continue }
+
+                        let holdingCurrency = holding.currency
+                        let holdingToPortfolioRate: Double = holdingCurrency == portfolioCurrency ? 1.0 :
+                            getRateForDate("\(holdingCurrency)\(portfolioCurrency)", date: snapshotDate)
+                        let holdingToBaseRate = holdingToPortfolioRate * portfolioToBaseRate
+
+                        let marketValue = quantity * price * holdingToBaseRate
+
+                        // 查找前一个交易日的价格
+                        var prevPrice: Double = price
+                        var lookbackDate = snapshotDate.adding(days: -1).startOfDay
+                        for _ in 0..<5 {
+                            if let foundPrice = historicalPrices[holding.symbol]?[lookbackDate] {
+                                prevPrice = foundPrice
+                                break
+                            }
+                            lookbackDate = lookbackDate.adding(days: -1).startOfDay
+                        }
+
+                        let dailyPnL = quantity * (price - prevPrice) * holdingToBaseRate
+                        let dailyPnLPercent = prevPrice > 0 ? ((price - prevPrice) / prevPrice) * 100 : 0
+
+                        holdingPnLList.append(HoldingDailyPnL(
+                            symbol: holding.symbol,
+                            name: holding.name,
+                            dailyPnL: dailyPnL,
+                            dailyPnLPercent: dailyPnLPercent,
+                            marketValue: marketValue
+                        ))
+                    }
+                }
+
+                if !holdingPnLList.isEmpty {
+                    snapshot.setHoldingPnLs(holdingPnLList)
+                    updatedCount += 1
+                }
+            }
+
+            if updatedCount > 0 {
+                try modelContext.save()
+                print("[UpdateHoldingPnL] Updated \(updatedCount) snapshots with holding P&L data")
+            }
+        } catch {
+            print("[UpdateHoldingPnL] Failed: \(error)")
+        }
     }
 }

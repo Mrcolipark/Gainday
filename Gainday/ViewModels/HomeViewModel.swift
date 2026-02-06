@@ -70,7 +70,40 @@ class HomeViewModel {
         defer { isLoading = false }
 
         let allSymbols = portfolios.flatMap(\.holdings).map(\.symbol)
-        guard !allSymbols.isEmpty else { return }
+
+        // 即使没有持仓也要生成空的 portfolioPnLs，避免显示备用界面
+        if allSymbols.isEmpty {
+            var pnls: [PnLCalculationService.PortfolioPnL] = []
+            for portfolio in portfolios {
+                let emptyPnL = PnLCalculationService.PortfolioPnL(
+                    portfolio: portfolio,
+                    totalValue: 0,
+                    totalCost: 0,
+                    totalUnrealizedPnL: 0,
+                    totalUnrealizedPnLPercent: 0,
+                    dailyPnL: 0,
+                    dailyPnLPercent: 0,
+                    holdingPnLs: []
+                )
+                pnls.append(emptyPnL)
+            }
+            portfolioPnLs = pnls
+            overallPnL = PnLCalculationService.OverallPnL(
+                totalValue: 0,
+                totalCost: 0,
+                unrealizedPnL: 0,
+                unrealizedPnLPercent: 0,
+                dailyPnL: 0,
+                dailyPnLPercent: 0,
+                portfolioPnLs: pnls
+            )
+            // Auto-expand all portfolios
+            for portfolio in portfolios {
+                expandedPortfolios.insert(portfolio.id.uuidString)
+            }
+            lastRefreshTime = Date()
+            return
+        }
 
         do {
             // 1. 获取所有持仓的报价（区分普通股票和日本投信）

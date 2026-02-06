@@ -258,16 +258,34 @@ struct DebugDataSection: View {
     @State private var showConfirmGenerate = false
 
     var body: some View {
-        Section {
+        VStack(spacing: 0) {
+            // 生成测试数据
             Button {
                 showConfirmGenerate = true
             } label: {
-                HStack(spacing: 10) {
-                    debugIcon("plus.square.fill.on.square.fill", color: .green)
-                    Text("生成测试数据")
-                        .foregroundStyle(.primary)
+                HStack(spacing: 12) {
+                    debugIcon("plus.square.fill.on.square.fill", color: AppColors.profit)
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("生成测试数据")
+                            .font(.system(size: 15))
+                            .foregroundStyle(AppColors.textPrimary)
+
+                        Text("创建测试账户和90天日历数据")
+                            .font(.system(size: 12))
+                            .foregroundStyle(AppColors.textTertiary)
+                    }
+
+                    Spacer()
+
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(AppColors.textTertiary)
                 }
+                .padding(16)
+                .contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
             .alert("生成测试数据", isPresented: $showConfirmGenerate) {
                 Button("取消", role: .cancel) {}
                 Button("生成") {
@@ -277,15 +295,37 @@ struct DebugDataSection: View {
                 Text("将创建3个测试账户、多个持仓和90天的日历数据")
             }
 
+            Divider()
+                .background(AppColors.dividerColor)
+                .padding(.leading, 60)
+
+            // 清除所有数据
             Button {
                 showConfirmClear = true
             } label: {
-                HStack(spacing: 10) {
-                    debugIcon("trash.fill", color: .red)
-                    Text("清除所有数据")
-                        .foregroundStyle(.red)
+                HStack(spacing: 12) {
+                    debugIcon("trash.fill", color: AppColors.loss)
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("清除所有数据")
+                            .font(.system(size: 15))
+                            .foregroundStyle(AppColors.loss)
+
+                        Text("删除所有账户、持仓和交易记录")
+                            .font(.system(size: 12))
+                            .foregroundStyle(AppColors.textTertiary)
+                    }
+
+                    Spacer()
+
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(AppColors.textTertiary)
                 }
+                .padding(16)
+                .contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
             .alert("确认清除", isPresented: $showConfirmClear) {
                 Button("取消", role: .cancel) {}
                 Button("清除", role: .destructive) {
@@ -294,29 +334,16 @@ struct DebugDataSection: View {
             } message: {
                 Text("此操作将删除所有账户、持仓、交易和日历数据，且无法恢复")
             }
-        } header: {
-            Label("调试工具", systemImage: "hammer.fill")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.orange)
-        } footer: {
-            Text("仅用于开发测试，正式版本请移除此功能")
-                .font(.caption2)
         }
     }
 
     private func debugIcon(_ name: String, color: Color) -> some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 7, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        colors: [color, color.opacity(0.8)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-                .frame(width: 28, height: 28)
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(color)
+                .frame(width: 32, height: 32)
             Image(systemName: name)
-                .font(.system(size: 13, weight: .semibold))
+                .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(.white)
         }
     }

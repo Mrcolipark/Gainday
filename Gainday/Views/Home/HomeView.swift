@@ -10,14 +10,35 @@ struct HomeView: View {
 
     @State private var viewModel = HomeViewModel()
     @State private var animateCards = false
-    @State private var showAddTransaction = false
+    @State private var portfolioForAddTransaction: Portfolio?
+    @State private var portfolioForWatchlist: Portfolio?
     @AppStorage("baseCurrency") private var baseCurrency = "JPY"
 
     var body: some View {
         @Bindable var vm = viewModel
         AppNavigationWrapper(title: "GainDay") {
             ScrollView {
-                LazyVStack(spacing: 16) {
+                VStack(spacing: 16) {
+                    // 品牌标题
+                    HStack {
+                        Text("GainDay")
+                            .font(.custom("Georgia-Bold", size: 28))
+                            .foregroundStyle(
+                                LinearGradient(
+                                    colors: [AppColors.profit, AppColors.profit.opacity(0.7)],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+                        Text("盈历")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundStyle(AppColors.textSecondary)
+                        Spacer()
+                    }
+                    .padding(.horizontal)
+                    .padding(.top, 4)
+
+                    // 投资组合头部
                     PortfolioHeaderView(
                         totalValue: viewModel.totalValue,
                         dailyPnL: viewModel.dailyPnL,
@@ -66,20 +87,23 @@ struct HomeView: View {
                 }
                 .padding(.bottom, 30)
             }
-            .background(AppColors.background)
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    addButton
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    refreshButton
-                }
-            }
-            .sheet(isPresented: $showAddTransaction) {
-                AddTransactionView(portfolios: portfolios)
-            }
             .refreshable {
                 await viewModel.refreshAll(portfolios: portfolios, baseCurrency: baseCurrency, modelContext: modelContext)
+            }
+            .background(AppColors.background)
+            .sheet(item: $portfolioForAddTransaction, onDismiss: {
+                Task {
+                    await viewModel.refreshAll(portfolios: portfolios, baseCurrency: baseCurrency, modelContext: modelContext)
+                }
+            }) { portfolio in
+                AddTransactionView(portfolios: [portfolio])
+            }
+            .sheet(item: $portfolioForWatchlist, onDismiss: {
+                Task {
+                    await viewModel.refreshAll(portfolios: portfolios, baseCurrency: baseCurrency, modelContext: modelContext)
+                }
+            }) { portfolio in
+                AddToWatchlistView(portfolio: portfolio)
             }
             .task {
                 await viewModel.refreshAll(portfolios: portfolios, baseCurrency: baseCurrency, modelContext: modelContext)
@@ -111,6 +135,11 @@ struct HomeView: View {
                     isExpanded: viewModel.isPortfolioExpanded(portfolioPnL.portfolio.id.uuidString),
                     onToggle: {
                         viewModel.togglePortfolioExpansion(portfolioPnL.portfolio.id.uuidString)
+                    },
+                    onRefresh: {
+                        Task {
+                            await viewModel.refreshAll(portfolios: portfolios, baseCurrency: baseCurrency, modelContext: modelContext)
+                        }
                     }
                 )
                 .id("\(portfolioPnL.portfolio.id)-\(viewModel.displayMode.rawValue)")
@@ -169,48 +198,138 @@ struct HomeView: View {
         switch viewModel.displayMode {
         case .basic:
             VStack(spacing: 0) {
-                ForEach(portfolio.holdings) { holding in
-                    HoldingRow(
-                        holding: holding,
-                        quote: viewModel.quotes[holding.symbol],
-                        displayMode: .basic,
-                        showPercent: viewModel.showPercentChange
-                    )
+                if portfolio.holdings.isEmpty {
+                    fallbackEmptyState(portfolio: portfolio)
+                } else {
+                    ForEach(portfolio.holdings) { holding in
+                        HoldingRow(
+                            holding: holding,
+                            quote: viewModel.quotes[holding.symbol],
+                            displayMode: .basic,
+                            showPercent: viewModel.showPercentChange
+                        )
 
-                    if holding.id != portfolio.holdings.last?.id {
-                        Rectangle()
-                            .fill(AppColors.dividerColor)
-                            .frame(height: 1)
-                            .padding(.leading, 16)
+                        if holding.id != portfolio.holdings.last?.id {
+                            Rectangle()
+                                .fill(AppColors.dividerColor)
+                                .frame(height: 1)
+                                .padding(.leading, 16)
+                        }
                     }
+
+                    fallbackAddButton(portfolio: portfolio)
+                        .padding(.top, 8)
                 }
             }
             .padding(.horizontal, 12)
             .padding(.bottom, 10)
 
         case .details:
-            HoldingDetailsTable(
-                holdings: portfolio.holdings,
-                quotes: viewModel.quotes,
-                showPercent: viewModel.showPercentChange,
-                onHoldingTap: { _ in }
-            )
-            .frame(minHeight: CGFloat(portfolio.holdings.count) * 56 + 48)
+            VStack(spacing: 8) {
+                if portfolio.holdings.isEmpty {
+                    fallbackEmptyState(portfolio: portfolio)
+                } else {
+                    HoldingDetailsTable(
+                        holdings: portfolio.holdings,
+                        quotes: viewModel.quotes,
+                        showPercent: viewModel.showPercentChange,
+                        onHoldingTap: { _ in }
+                    )
+                    .frame(minHeight: CGFloat(portfolio.holdings.count) * 56 + 48)
+
+                    fallbackAddButton(portfolio: portfolio)
+                }
+            }
             .padding(.horizontal, 8)
             .padding(.vertical, 8)
 
         case .holdings:
             VStack(spacing: 8) {
-                ForEach(portfolio.holdings) { holding in
-                    ExpandableHoldingRow(
-                        holding: holding,
-                        quote: viewModel.quotes[holding.symbol],
-                        showPercent: viewModel.showPercentChange
-                    )
+                if portfolio.holdings.isEmpty {
+                    fallbackEmptyState(portfolio: portfolio)
+                } else {
+                    ForEach(portfolio.holdings) { holding in
+                        ExpandableHoldingRow(
+                            holding: holding,
+                            quote: viewModel.quotes[holding.symbol],
+                            showPercent: viewModel.showPercentChange
+                        )
+                    }
+
+                    fallbackAddButton(portfolio: portfolio)
                 }
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 10)
+        }
+    }
+
+    // MARK: - 后备空状态
+
+    private var fallbackAddButtonTitle: String {
+        viewModel.displayMode == .holdings ? "添加持仓" : "添加标的"
+    }
+
+    private var fallbackEmptyStateTitle: String {
+        viewModel.displayMode == .holdings ? "暂无持仓" : "暂无标的"
+    }
+
+    private func showAddView(for portfolio: Portfolio) {
+        if viewModel.displayMode == .holdings {
+            portfolioForAddTransaction = portfolio
+        } else {
+            portfolioForWatchlist = portfolio
+        }
+    }
+
+    private func fallbackEmptyState(portfolio: Portfolio) -> some View {
+        VStack(spacing: 12) {
+            Image(systemName: viewModel.displayMode == .holdings ? "chart.line.uptrend.xyaxis" : "star")
+                .font(.system(size: 32))
+                .foregroundStyle(AppColors.textTertiary)
+
+            Text(fallbackEmptyStateTitle)
+                .font(.system(size: 15))
+                .foregroundStyle(AppColors.textSecondary)
+
+            Button {
+                showAddView(for: portfolio)
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "plus.circle.fill")
+                    Text(fallbackAddButtonTitle)
+                }
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(.white)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
+                .background(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(AppColors.profit)
+                )
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 24)
+    }
+
+    private func fallbackAddButton(portfolio: Portfolio) -> some View {
+        Button {
+            showAddView(for: portfolio)
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "plus")
+                    .font(.system(size: 12, weight: .semibold))
+                Text(fallbackAddButtonTitle)
+                    .font(.system(size: 13, weight: .medium))
+            }
+            .foregroundStyle(AppColors.textSecondary)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 10)
+            .background(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .stroke(AppColors.dividerColor, lineWidth: 1)
+            )
         }
     }
 
@@ -287,32 +406,6 @@ struct HomeView: View {
         }
     }
 
-    // MARK: - 工具栏按钮
-
-    private var addButton: some View {
-        Button {
-            showAddTransaction = true
-        } label: {
-            Image(systemName: "plus")
-                .font(.system(size: 16, weight: .medium))
-                .foregroundStyle(AppColors.textPrimary)
-        }
-    }
-
-    private var refreshButton: some View {
-        Button {
-            Task {
-                await viewModel.refreshAll(portfolios: portfolios, baseCurrency: baseCurrency, modelContext: modelContext)
-            }
-        } label: {
-            Image(systemName: "arrow.clockwise")
-                .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(AppColors.textSecondary)
-                .rotationEffect(.degrees(viewModel.isLoading ? 360 : 0))
-                .animation(viewModel.isLoading ? .linear(duration: 1).repeatForever(autoreverses: false) : .default, value: viewModel.isLoading)
-        }
-        .disabled(viewModel.isLoading)
-    }
 }
 
 #Preview {
