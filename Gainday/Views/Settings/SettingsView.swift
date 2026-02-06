@@ -14,7 +14,9 @@ struct SettingsView: View {
 
     @AppStorage("baseCurrency") private var baseCurrency = "JPY"
     @AppStorage("iCloudSync") private var iCloudSync = true
-    @AppStorage("appearance") private var appearance = "system"
+
+    // 使用 AppearanceManager 管理主题
+    @State private var appearanceManager = AppearanceManager.shared
 
     @State private var showAddAccount = false
     @State private var portfolioToDelete: Portfolio?
@@ -311,7 +313,10 @@ struct SettingsView: View {
 
                     Spacer()
 
-                    Picker("", selection: $appearance) {
+                    Picker("", selection: Binding(
+                        get: { appearanceManager.appearance },
+                        set: { appearanceManager.appearance = $0 }
+                    )) {
                         Text("跟随系统").tag("system")
                         Text("浅色").tag("light")
                         Text("深色").tag("dark")

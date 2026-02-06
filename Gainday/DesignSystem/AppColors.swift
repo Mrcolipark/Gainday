@@ -13,36 +13,70 @@ enum AppColors {
     /// 主色调 - iOS 系统蓝
     static let accent = Color(hex: 0x007AFF)
 
-    // MARK: - Background System (Pure Black for OLED)
+    // MARK: - Background System (Adaptive)
 
-    /// 主背景 - 纯黑 (OLED friendly)
-    static let background = Color.black
-    /// 次级背景 - 深灰卡片
-    static let secondaryBackground = Color(hex: 0x1C1C1E)
-    /// 三级背景 - 更亮的灰
-    static let tertiaryBackground = Color(hex: 0x2C2C2E)
+    /// 主背景
+    static let background = Color(
+        light: Color(hex: 0xF2F2F7),  // iOS 系统浅灰背景
+        dark: Color.black              // OLED 纯黑
+    )
 
-    // MARK: - Surface Colors
+    /// 次级背景
+    static let secondaryBackground = Color(
+        light: Color(hex: 0xFFFFFF),  // 纯白
+        dark: Color(hex: 0x1C1C1E)    // 深灰
+    )
+
+    /// 三级背景
+    static let tertiaryBackground = Color(
+        light: Color(hex: 0xF2F2F7),
+        dark: Color(hex: 0x2C2C2E)
+    )
+
+    // MARK: - Surface Colors (Adaptive)
 
     /// 卡片表面
-    static let cardSurface = Color(hex: 0x1C1C1E)
+    static let cardSurface = Color(
+        light: Color.white,
+        dark: Color(hex: 0x1C1C1E)
+    )
+
     /// 悬浮表面
-    static let elevatedSurface = Color(hex: 0x2C2C2E)
-    /// 分割线 - 细微的
-    static let dividerColor = Color(hex: 0x38383A)
+    static let elevatedSurface = Color(
+        light: Color(hex: 0xF2F2F7),
+        dark: Color(hex: 0x2C2C2E)
+    )
+
+    /// 分割线
+    static let dividerColor = Color(
+        light: Color(hex: 0xC6C6C8),
+        dark: Color(hex: 0x38383A)
+    )
+
     /// 区块标题
     static let sectionHeader = Color(hex: 0x8E8E93)
 
-    // MARK: - Text Hierarchy (High Contrast)
+    // MARK: - Text Hierarchy (Adaptive)
 
-    /// 主要文字 - 纯白，最高对比度
-    static let textPrimary = Color.white
-    /// 次要文字 - 系统灰
-    static let textSecondary = Color(hex: 0x8E8E93)
-    /// 第三级文字 - 更暗的灰
-    static let textTertiary = Color(hex: 0x636366)
+    /// 主要文字
+    static let textPrimary = Color(
+        light: Color.black,
+        dark: Color.white
+    )
 
-    // MARK: - 12+ Stop Saturated Heatmap Colors (High Contrast)
+    /// 次要文字
+    static let textSecondary = Color(
+        light: Color(hex: 0x6C6C70),
+        dark: Color(hex: 0x8E8E93)
+    )
+
+    /// 第三级文字
+    static let textTertiary = Color(
+        light: Color(hex: 0x8E8E93),
+        dark: Color(hex: 0x636366)
+    )
+
+    // MARK: - 12+ Stop Saturated Heatmap Colors
 
     static func pnlColor(percent: Double) -> Color {
         switch percent {
@@ -51,9 +85,9 @@ enum AppColors {
         case ..<(-2):   return Color(hex: 0xD32F2F)   // crimson
         case ..<(-1):   return Color(hex: 0xE53935)   // red
         case ..<(-0.5): return Color(hex: 0xEF5350)   // coral red
-        case ..<0:      return Color(hex: 0xF44336)   // medium red (替代淡粉)
+        case ..<0:      return Color(hex: 0xF44336)   // medium red
         case 0:         return Color(hex: 0x616161)   // neutral dark gray
-        case ..<0.5:    return Color(hex: 0x4CAF50)   // medium green (替代淡绿)
+        case ..<0.5:    return Color(hex: 0x4CAF50)   // medium green
         case ..<1:      return Color(hex: 0x43A047)   // green
         case ..<2:      return Color(hex: 0x388E3C)   // darker green
         case ..<3:      return Color(hex: 0x2E7D32)   // deep green
@@ -83,12 +117,14 @@ enum AppColors {
         accountTags[key] ?? .blue
     }
 
-    // Share card gradients
-    static let shareCardGradient = LinearGradient(
-        colors: [Color(white: 0.12), Color(white: 0.05)],
-        startPoint: .topLeading,
-        endPoint: .bottomTrailing
-    )
+    // Share card gradients (adaptive)
+    static var shareCardGradient: LinearGradient {
+        LinearGradient(
+            colors: [Color(white: 0.12), Color(white: 0.05)],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
 }
 
 // MARK: - Color Hex Extension
