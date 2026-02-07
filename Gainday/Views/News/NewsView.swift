@@ -202,7 +202,7 @@ struct NewsView: View {
             }
             .padding(.horizontal)
 
-            // 市场选择器
+            // 市场选择器（确保在图片上层）
             HStack(spacing: 0) {
                 ForEach(NewsMarket.allCases, id: \.self) { market in
                     Button {
@@ -229,6 +229,7 @@ struct NewsView: View {
                     .fill(AppColors.elevatedSurface)
             )
             .padding(.horizontal)
+            .zIndex(10)
 
             // 头条新闻卡片
             if isLoading && newsItems.isEmpty {
@@ -558,9 +559,10 @@ struct FeaturedNewsCard: View {
                         image
                             .resizable()
                             .aspectRatio(contentMode: .fill)
+                            .frame(maxWidth: .infinity)
                             .frame(height: 140)
-                            .clipped()
                             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                     case .failure:
                         // Fallback to gradient + icon
                         fallbackImageView
@@ -617,6 +619,8 @@ struct FeaturedNewsCard: View {
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .fill(AppColors.cardSurface)
         )
+        .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .clipped()
     }
 
     // Fallback gradient + icon view

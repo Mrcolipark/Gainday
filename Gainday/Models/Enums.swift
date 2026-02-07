@@ -258,14 +258,17 @@ enum PortfolioDisplayMode: String, CaseIterable, Identifiable {
     }
 }
 
-// MARK: - Time Range
+// MARK: - Time Range (Apple Stocks Style)
 
 enum TimeRange: String, CaseIterable, Identifiable {
+    case day = "1D"
     case week = "1W"
     case month = "1M"
     case threeMonths = "3M"
     case sixMonths = "6M"
     case year = "1Y"
+    case twoYears = "2Y"
+    case fiveYears = "5Y"
     case all = "ALL"
 
     var id: String { rawValue }
@@ -274,12 +277,45 @@ enum TimeRange: String, CaseIterable, Identifiable {
 
     var days: Int? {
         switch self {
+        case .day:         return 1
         case .week:        return 7
         case .month:       return 30
         case .threeMonths: return 90
         case .sixMonths:   return 180
         case .year:        return 365
+        case .twoYears:    return 730
+        case .fiveYears:   return 1825
         case .all:         return nil
+        }
+    }
+
+    /// Yahoo Finance API interval parameter
+    var yahooInterval: String {
+        switch self {
+        case .day:         return "5m"    // 5分钟间隔
+        case .week:        return "15m"   // 15分钟间隔
+        case .month:       return "1h"    // 1小时间隔
+        case .threeMonths: return "1d"    // 日线
+        case .sixMonths:   return "1d"
+        case .year:        return "1d"
+        case .twoYears:    return "1wk"   // 周线
+        case .fiveYears:   return "1wk"
+        case .all:         return "1mo"   // 月线
+        }
+    }
+
+    /// Yahoo Finance API range parameter
+    var yahooRange: String {
+        switch self {
+        case .day:         return "1d"
+        case .week:        return "5d"
+        case .month:       return "1mo"
+        case .threeMonths: return "3mo"
+        case .sixMonths:   return "6mo"
+        case .year:        return "1y"
+        case .twoYears:    return "2y"
+        case .fiveYears:   return "5y"
+        case .all:         return "max"
         }
     }
 }

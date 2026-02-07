@@ -420,6 +420,7 @@ struct MarketQuoteDetailView: View {
     @State private var selectedTimeRange: TimeRange = .threeMonths
     @State private var fullQuote: MarketDataService.QuoteData?
     @State private var viewId = UUID()
+    @State private var isChartInteracting = false
 
     private var displayQuote: MarketDataService.QuoteData { fullQuote ?? quote }
     private var changePct: Double { displayQuote.regularMarketChangePercent ?? 0 }
@@ -514,25 +515,28 @@ struct MarketQuoteDetailView: View {
 
     private var chartSection: some View {
         VStack(spacing: 12) {
-            // 时间范围选择器
-            HStack(spacing: 6) {
-                ForEach(TimeRange.allCases, id: \.self) { range in
-                    Button {
-                        selectedTimeRange = range
-                        Task { await loadChartData() }
-                    } label: {
-                        Text(range.rawValue)
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundStyle(selectedTimeRange == range ? .white : AppColors.textSecondary)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 6)
-                            .background(
-                                Capsule()
-                                    .fill(selectedTimeRange == range ? AppColors.accent : AppColors.elevatedSurface)
-                            )
+            // 时间范围选择器（可滚动）
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 4) {
+                    ForEach(TimeRange.allCases, id: \.self) { range in
+                        Button {
+                            selectedTimeRange = range
+                            Task { await loadChartData() }
+                        } label: {
+                            Text(range.rawValue)
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundStyle(selectedTimeRange == range ? .white : AppColors.textSecondary)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 6)
+                                .background(
+                                    Capsule()
+                                        .fill(selectedTimeRange == range ? AppColors.accent : AppColors.elevatedSurface)
+                                )
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
                 }
+                .padding(.horizontal, 2)
             }
 
             // 交互式图表
@@ -542,7 +546,9 @@ struct MarketQuoteDetailView: View {
             } else {
                 InteractiveStockChart(
                     data: chartData,
-                    currency: currency
+                    currency: currency,
+                    timeRange: selectedTimeRange,
+                    isInteracting: $isChartInteracting
                 )
                 .frame(height: 250)
             }
@@ -552,6 +558,7 @@ struct MarketQuoteDetailView: View {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .fill(AppColors.cardSurface)
         )
+        .disableSwipeBack(when: isChartInteracting)
     }
 
     private var statsSection: some View {
@@ -635,18 +642,12 @@ struct MarketQuoteDetailView: View {
         isLoadingChart = true
         defer { isLoadingChart = false }
 
-        let range: String
-        switch selectedTimeRange {
-        case .week: range = "5d"
-        case .month: range = "1mo"
-        case .threeMonths: range = "3mo"
-        case .sixMonths: range = "6mo"
-        case .year: range = "1y"
-        case .all: range = "max"
-        }
-
         do {
-            chartData = try await MarketDataService.shared.fetchChartData(symbol: quote.symbol, range: range)
+            chartData = try await MarketDataService.shared.fetchChartData(
+                symbol: quote.symbol,
+                interval: selectedTimeRange.yahooInterval,
+                range: selectedTimeRange.yahooRange
+            )
         } catch {
             print("[MarketQuoteDetailView] Chart load failed: \(error)")
             chartData = []
