@@ -149,6 +149,11 @@ struct PnLCalendarView: View {
                     await loadSnapshots()
                 }
             }
+            .onChange(of: baseCurrency) { _, _ in
+                Task {
+                    await loadSnapshots()
+                }
+            }
         }
     }
 

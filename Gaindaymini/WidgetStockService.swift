@@ -1,5 +1,4 @@
 import Foundation
-import SwiftData
 
 // MARK: - Widget Stock Service
 
@@ -25,7 +24,7 @@ actor WidgetStockService {
         let holdings = loadHoldingsFromDatabase()
 
         guard !holdings.isEmpty else {
-            return WatchlistStock.placeholders
+            return []
         }
 
         // 2. 获取实时价格和走势数据
@@ -49,31 +48,24 @@ actor WidgetStockService {
             }
         }
 
-        // 按市值排序（这里简化为按原顺序）
-        return stocks.isEmpty ? WatchlistStock.placeholders : stocks
+        return stocks
     }
 
-    // MARK: - Load Holdings from Database
+    // MARK: - Load Holdings from UserDefaults
 
     private func loadHoldingsFromDatabase() -> [(symbol: String, name: String, currency: String)] {
-        do {
-            let schema = Schema([DailySnapshot.self, Portfolio.self, Holding.self, Transaction.self, PriceCache.self])
-            let config = ModelConfiguration(schema: schema, cloudKitDatabase: .automatic)
-            let container = try ModelContainer(for: schema, configurations: [config])
-            let context = ModelContext(container)
-
-            let descriptor = FetchDescriptor<Holding>()
-            let holdings = try context.fetch(descriptor)
-
-            // 过滤有持仓的股票，根据 market 推断 currency
-            return holdings
-                .filter { $0.totalQuantity > 0 }
-                .map { holding in
-                    let market = Market(rawValue: holding.market) ?? .JP
-                    return (symbol: holding.symbol, name: holding.name, currency: market.currency)
-                }
-        } catch {
+        guard let defaults = UserDefaults(suiteName: WidgetConstants.appGroupIdentifier),
+              let holdingsList = defaults.array(forKey: "widget_holdings") as? [[String: Any]] else {
             return []
+        }
+
+        return holdingsList.compactMap { dict in
+            guard let symbol = dict["symbol"] as? String,
+                  let name = dict["name"] as? String,
+                  let currency = dict["currency"] as? String else {
+                return nil
+            }
+            return (symbol: symbol, name: name, currency: currency)
         }
     }
 

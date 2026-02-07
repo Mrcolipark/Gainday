@@ -1,6 +1,5 @@
 import Foundation
 import WidgetKit
-import SwiftData
 import SwiftUI
 
 // MARK: - Shared Constants
@@ -118,12 +117,25 @@ extension Double {
         default: currencySymbol = code
         }
 
-        if absValue >= 100_000_000 {
-            return "\(sign)\(currencySymbol)\(String(format: "%.1f", absValue / 100_000_000))亿"
-        } else if absValue >= 10_000 {
-            return "\(sign)\(currencySymbol)\(String(format: "%.1f", absValue / 10_000))万"
+        let lang = WidgetLanguageManager.shared.effectiveLanguage
+        let useWan = (lang == "zh-Hans" || lang == "zh-Hant" || lang == "ja")
+
+        if useWan {
+            if absValue >= 100_000_000 {
+                return "\(sign)\(currencySymbol)\(String(format: "%.1f", absValue / 100_000_000))亿"
+            } else if absValue >= 10_000 {
+                return "\(sign)\(currencySymbol)\(String(format: "%.1f", absValue / 10_000))万"
+            } else {
+                return "\(sign)\(currencySymbol)\(String(format: "%.0f", absValue))"
+            }
         } else {
-            return "\(sign)\(currencySymbol)\(String(format: "%.0f", absValue))"
+            if absValue >= 1_000_000 {
+                return "\(sign)\(currencySymbol)\(String(format: "%.1f", absValue / 1_000_000))M"
+            } else if absValue >= 1_000 {
+                return "\(sign)\(currencySymbol)\(String(format: "%.1f", absValue / 1_000))K"
+            } else {
+                return "\(sign)\(currencySymbol)\(String(format: "%.0f", absValue))"
+            }
         }
     }
 }
@@ -168,6 +180,16 @@ struct WidgetPnLData {
     let dailyPnLPercent: Double
     let baseCurrency: String
     let date: Date
+    let isEmpty: Bool
+
+    init(totalValue: Double, dailyPnL: Double, dailyPnLPercent: Double, baseCurrency: String, date: Date, isEmpty: Bool = false) {
+        self.totalValue = totalValue
+        self.dailyPnL = dailyPnL
+        self.dailyPnLPercent = dailyPnLPercent
+        self.baseCurrency = baseCurrency
+        self.date = date
+        self.isEmpty = isEmpty
+    }
 
     static let placeholder = WidgetPnLData(
         totalValue: 1_234_567,
@@ -176,62 +198,42 @@ struct WidgetPnLData {
         baseCurrency: "JPY",
         date: Date()
     )
+
+    static let empty = WidgetPnLData(
+        totalValue: 0,
+        dailyPnL: 0,
+        dailyPnLPercent: 0,
+        baseCurrency: "JPY",
+        date: Date(),
+        isEmpty: true
+    )
 }
 
 // MARK: - Data Loading
 
 struct WidgetDataLoader {
-    /// 获取用户基准货币（从第一个 Portfolio 获取，默认 JPY）
-    static func getUserBaseCurrency(context: ModelContext) -> String {
-        do {
-            var descriptor = FetchDescriptor<Portfolio>(
-                sortBy: [SortDescriptor(\.sortOrder)]
-            )
-            descriptor.fetchLimit = 1
-            let portfolios = try context.fetch(descriptor)
-            return portfolios.first?.baseCurrency ?? "JPY"
-        } catch {
-            return "JPY"
-        }
-    }
-
-    /// 创建共享的 ModelContainer 和 Context（使用 App Group 共享目录）
-    private static func createContext() throws -> ModelContext {
-        let schema = Schema([DailySnapshot.self, Portfolio.self, Holding.self, Transaction.self, PriceCache.self])
-        let config = ModelConfiguration(
-            schema: schema,
-            groupContainer: .identifier(WidgetConstants.appGroupIdentifier),
-            cloudKitDatabase: .automatic
-        )
-        let container = try ModelContainer(for: schema, configurations: [config])
-        return ModelContext(container)
-    }
-
     static func loadLatestPnL() -> WidgetPnLData {
-        do {
-            let context = try createContext()
-            let baseCurrency = getUserBaseCurrency(context: context)
+        // 优先从 App Group UserDefaults 读取（可靠）
+        if let defaults = UserDefaults(suiteName: WidgetConstants.appGroupIdentifier) {
+            let totalValue = defaults.double(forKey: "widget_totalValue")
+            let dailyPnL = defaults.double(forKey: "widget_dailyPnL")
+            let dailyPnLPercent = defaults.double(forKey: "widget_dailyPnLPercent")
+            let baseCurrency = defaults.string(forKey: "widget_baseCurrency") ?? "JPY"
+            let lastUpdate = defaults.double(forKey: "widget_lastUpdate")
 
-            let descriptor = FetchDescriptor<DailySnapshot>(
-                sortBy: [SortDescriptor(\.date, order: .reverse)]
-            )
-
-            let snapshots = try context.fetch(descriptor)
-
-            // 只获取全局快照（portfolioID == nil）
-            if let latest = snapshots.first(where: { $0.portfolioID == nil }) {
+            // 只要有过数据写入就使用
+            if lastUpdate > 0 {
+                let date = Date(timeIntervalSince1970: lastUpdate)
                 return WidgetPnLData(
-                    totalValue: latest.totalValue,
-                    dailyPnL: latest.dailyPnL,
-                    dailyPnLPercent: latest.dailyPnLPercent,
+                    totalValue: totalValue,
+                    dailyPnL: dailyPnL,
+                    dailyPnLPercent: dailyPnLPercent,
                     baseCurrency: baseCurrency,
-                    date: latest.date
+                    date: date
                 )
             }
-        } catch {
-            // Fall through to placeholder
         }
 
-        return .placeholder
+        return .empty
     }
 }

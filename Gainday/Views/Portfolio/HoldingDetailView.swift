@@ -1,4 +1,5 @@
 import SwiftUI
+import WidgetKit
 
 struct HoldingDetailView: View {
     let holding: Holding
@@ -767,6 +768,7 @@ struct HoldingDetailView: View {
         do {
             try modelContext.save()
             NotificationCenter.default.post(name: .portfolioDataDidChange, object: nil)
+            WidgetCenter.shared.reloadAllTimelines()
         } catch {
             ErrorPresenter.shared.showError(error)
         }
@@ -785,6 +787,7 @@ struct HoldingDetailView: View {
         do {
             try modelContext.save()
             NotificationCenter.default.post(name: .portfolioDataDidChange, object: nil)
+            WidgetCenter.shared.reloadAllTimelines()
         } catch {
             ErrorPresenter.shared.showError(error)
         }

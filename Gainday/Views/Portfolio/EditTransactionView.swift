@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import WidgetKit
 
 /// 编辑交易记录
 struct EditTransactionView: View {
@@ -290,6 +291,7 @@ struct EditTransactionView: View {
         do {
             try modelContext.save()
             NotificationCenter.default.post(name: .portfolioDataDidChange, object: nil)
+            WidgetCenter.shared.reloadAllTimelines()
         } catch {
             ErrorPresenter.shared.showError(error)
         }

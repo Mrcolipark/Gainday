@@ -1,6 +1,5 @@
 import WidgetKit
 import SwiftUI
-import SwiftData
 
 // MARK: - Timeline Provider
 
@@ -23,7 +22,7 @@ struct MonthHeatmapProvider: TimelineProvider {
         completion(timeline)
     }
 
-    // MARK: - Load Data
+    // MARK: - Load Data from UserDefaults
 
     private func loadCurrentMonthPnL() -> MonthHeatmapEntry {
         let now = Date()
@@ -31,52 +30,43 @@ struct MonthHeatmapProvider: TimelineProvider {
         let year = calendar.component(.year, from: now)
         let month = calendar.component(.month, from: now)
 
-        do {
-            let schema = Schema([DailySnapshot.self, Portfolio.self, Holding.self, Transaction.self, PriceCache.self])
-            let config = ModelConfiguration(
-                schema: schema,
-                groupContainer: .identifier(WidgetConstants.appGroupIdentifier),
-                cloudKitDatabase: .automatic
-            )
-            let container = try ModelContainer(for: schema, configurations: [config])
-            let context = ModelContext(container)
-
-            let descriptor = FetchDescriptor<DailySnapshot>()
-            let snapshots = try context.fetch(descriptor)
-
-            // 只取全局快照（portfolioID == nil）且当月的
-            let monthSnapshots = snapshots.filter {
-                $0.portfolioID == nil &&
-                calendar.component(.year, from: $0.date) == year &&
-                calendar.component(.month, from: $0.date) == month
-            }
-
-            // 按日期映射
-            var dailyData: [Int: (pnL: Double, pnLPercent: Double)] = [:]
-            for snapshot in monthSnapshots {
-                let day = calendar.component(.day, from: snapshot.date)
-                dailyData[day] = (pnL: snapshot.dailyPnL, pnLPercent: snapshot.dailyPnLPercent)
-            }
-
-            // 获取当月天数
+        guard let defaults = UserDefaults(suiteName: WidgetConstants.appGroupIdentifier),
+              let monthData = defaults.array(forKey: "widget_monthPnL") as? [[String: Any]],
+              defaults.integer(forKey: "widget_monthPnL_year") == year,
+              defaults.integer(forKey: "widget_monthPnL_month") == month else {
+            // 没有数据或数据不是当月的
             let daysInMonth = calendar.range(of: .day, in: .month, for: now)?.count ?? 31
-
-            // 生成每天的数据
-            let days = (1...daysInMonth).map { day in
-                DayPnLData(
-                    day: day,
-                    pnL: dailyData[day]?.pnL ?? 0,
-                    pnLPercent: dailyData[day]?.pnLPercent ?? 0,
-                    hasData: dailyData[day] != nil
-                )
+            let emptyDays = (1...daysInMonth).map { day in
+                DayPnLData(day: day, pnL: 0, pnLPercent: 0, hasData: false)
             }
-
-            let monthTotal = days.filter { $0.hasData }.reduce(0) { $0 + $1.pnL }
-
-            return MonthHeatmapEntry(date: now, days: days, monthTotal: monthTotal, year: year, month: month)
-        } catch {
-            return MonthHeatmapEntry(date: now, days: DayPnLData.placeholders, monthTotal: 0, year: year, month: month)
+            return MonthHeatmapEntry(date: now, days: emptyDays, monthTotal: 0, year: year, month: month)
         }
+
+        // 按日期映射
+        var dailyData: [Int: (pnL: Double, pnLPercent: Double)] = [:]
+        for item in monthData {
+            guard let day = item["day"] as? Int,
+                  let dailyPnL = item["dailyPnL"] as? Double,
+                  let dailyPnLPercent = item["dailyPnLPercent"] as? Double else { continue }
+            dailyData[day] = (pnL: dailyPnL, pnLPercent: dailyPnLPercent)
+        }
+
+        // 获取当月天数
+        let daysInMonth = calendar.range(of: .day, in: .month, for: now)?.count ?? 31
+
+        // 生成每天的数据
+        let days = (1...daysInMonth).map { day in
+            DayPnLData(
+                day: day,
+                pnL: dailyData[day]?.pnL ?? 0,
+                pnLPercent: dailyData[day]?.pnLPercent ?? 0,
+                hasData: dailyData[day] != nil
+            )
+        }
+
+        let monthTotal = days.filter { $0.hasData }.reduce(0) { $0 + $1.pnL }
+
+        return MonthHeatmapEntry(date: now, days: days, monthTotal: monthTotal, year: year, month: month)
     }
 }
 
@@ -333,15 +323,17 @@ struct MonthHeatmapWidgetView: View {
             if data.hasData {
                 Text(data.pnLCompact)
                     .font(.system(size: size > 36 ? 9 : 7, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(.white.opacity(abs(data.pnLPercent) > 0.5 ? 1.0 : 0.9))
                     .lineLimit(1)
                     .minimumScaleFactor(0.6)
+                    .shadow(color: .black.opacity(0.3), radius: 1, x: 0, y: 0.5)
             }
 
             // 今日边框
             if isToday {
                 RoundedRectangle(cornerRadius: 3, style: .continuous)
                     .strokeBorder(.white, lineWidth: 2)
+                    .shadow(color: .black.opacity(0.2), radius: 2)
             }
         }
         .frame(width: size, height: size)
@@ -404,12 +396,40 @@ private extension Double {
             sign = ""
         }
 
-        if absValue >= 100_000_000 {
-            return "\(sign)¥\(String(format: "%.1f", absValue / 100_000_000))亿"
-        } else if absValue >= 10_000 {
-            return "\(sign)¥\(String(format: "%.1f", absValue / 10_000))万"
+        // 从共享 UserDefaults 获取用户设置的基准货币
+        let baseCurrency = UserDefaults(suiteName: WidgetConstants.appGroupIdentifier)?
+            .string(forKey: "baseCurrency")
+            ?? UserDefaults.standard.string(forKey: "baseCurrency")
+            ?? "JPY"
+
+        let currencySymbol: String
+        switch baseCurrency {
+        case "JPY": currencySymbol = "¥"
+        case "CNY": currencySymbol = "¥"
+        case "USD": currencySymbol = "$"
+        case "HKD": currencySymbol = "HK$"
+        default: currencySymbol = baseCurrency
+        }
+
+        let lang = WidgetLanguageManager.shared.effectiveLanguage
+        let useWan = (lang == "zh-Hans" || lang == "zh-Hant" || lang == "ja")
+
+        if useWan {
+            if absValue >= 100_000_000 {
+                return "\(sign)\(currencySymbol)\(String(format: "%.1f", absValue / 100_000_000))亿"
+            } else if absValue >= 10_000 {
+                return "\(sign)\(currencySymbol)\(String(format: "%.1f", absValue / 10_000))万"
+            } else {
+                return "\(sign)\(currencySymbol)\(String(format: "%.0f", absValue))"
+            }
         } else {
-            return "\(sign)¥\(String(format: "%.0f", absValue))"
+            if absValue >= 1_000_000 {
+                return "\(sign)\(currencySymbol)\(String(format: "%.1f", absValue / 1_000_000))M"
+            } else if absValue >= 1_000 {
+                return "\(sign)\(currencySymbol)\(String(format: "%.1f", absValue / 1_000))K"
+            } else {
+                return "\(sign)\(currencySymbol)\(String(format: "%.0f", absValue))"
+            }
         }
     }
 }

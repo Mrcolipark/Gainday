@@ -235,13 +235,84 @@ struct WidgetSparkline: View {
     }
 }
 
+// MARK: - Medium View
+
+struct WatchlistMediumView: View {
+    let stocks: [WatchlistStock]
+    let updateTime: Date
+
+    private var timeString: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm"
+        return formatter.string(from: updateTime)
+    }
+
+    var body: some View {
+        GeometryReader { geo in
+            let stockCount = min(stocks.count, 3)
+            let headerHeight: CGFloat = 20
+            let rowHeight = stockCount > 0 ? (geo.size.height - headerHeight) / CGFloat(stockCount) : 50
+
+            VStack(alignment: .leading, spacing: 0) {
+                HStack {
+                    Text("持仓".widgetLocalized)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(.secondary)
+
+                    Spacer()
+
+                    Text(timeString)
+                        .font(.system(size: 10, weight: .medium, design: .monospaced))
+                        .foregroundStyle(.tertiary)
+                }
+                .frame(height: headerHeight)
+
+                ForEach(stocks.prefix(3)) { stock in
+                    LargeStockRow(stock: stock)
+                        .frame(height: rowHeight)
+                }
+            }
+        }
+        .padding(12)
+        .containerBackground(.fill.tertiary, for: .widget)
+    }
+}
+
+// MARK: - Empty State View
+
+struct WatchlistEmptyView: View {
+    var body: some View {
+        VStack(spacing: 8) {
+            Image(systemName: "chart.line.uptrend.xyaxis")
+                .font(.system(size: 28))
+                .foregroundStyle(.tertiary)
+
+            Text("持仓".widgetLocalized)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .containerBackground(.fill.tertiary, for: .widget)
+    }
+}
+
 // MARK: - Widget Entry View
 
 struct WatchlistWidgetEntryView: View {
+    @Environment(\.widgetFamily) var family
     let entry: WatchlistEntry
 
     var body: some View {
-        WatchlistLargeView(stocks: entry.stocks, updateTime: entry.date)
+        if entry.stocks.isEmpty {
+            WatchlistEmptyView()
+        } else {
+            switch family {
+            case .systemMedium:
+                WatchlistMediumView(stocks: entry.stocks, updateTime: entry.date)
+            default:
+                WatchlistLargeView(stocks: entry.stocks, updateTime: entry.date)
+            }
+        }
     }
 }
 
@@ -256,7 +327,7 @@ struct WatchlistWidget: Widget {
         }
         .configurationDisplayName("持仓列表".widgetLocalized)
         .description("实时查看持仓涨跌".widgetLocalized)
-        .supportedFamilies([.systemLarge])
+        .supportedFamilies([.systemMedium, .systemLarge])
     }
 }
 

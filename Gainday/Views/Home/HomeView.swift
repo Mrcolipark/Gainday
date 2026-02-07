@@ -136,6 +136,11 @@ struct HomeView: View {
                     }
                 }
             }
+            .onChange(of: baseCurrency) { _, _ in
+                Task {
+                    await viewModel.refreshAll(portfolios: portfolios, baseCurrency: baseCurrency, modelContext: modelContext)
+                }
+            }
         }
     }
 

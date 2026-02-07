@@ -1,6 +1,7 @@
 import SwiftUI
 import SwiftData
 import UniformTypeIdentifiers
+import WidgetKit
 
 #if canImport(UIKit)
 import UIKit
@@ -77,6 +78,12 @@ struct SettingsView: View {
                 }
             }
             #endif
+            .onChange(of: baseCurrency) { _, newValue in
+                // 同步到 App Group UserDefaults，供 Widget 读取
+                UserDefaults(suiteName: "group.com.gainday.shared")?.set(newValue, forKey: "baseCurrency")
+                // 刷新 Widget 显示
+                WidgetCenter.shared.reloadAllTimelines()
+            }
             .sheet(isPresented: $showAddAccount) {
                 AddAccountSheet()
             }

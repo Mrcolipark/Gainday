@@ -1,5 +1,6 @@
 import Foundation
 import SwiftData
+import WidgetKit
 
 @MainActor
 class SnapshotService {
@@ -18,10 +19,8 @@ class SnapshotService {
         modelContext: ModelContext
     ) async {
         let today = Date().startOfDay
-
-        // 如果是周末，跳过
         let weekday = Calendar.current.component(.weekday, from: today)
-        if weekday == 1 || weekday == 7 { return }
+        let isWeekend = weekday == 1 || weekday == 7
 
         // 如果没有持仓，跳过
         let hasHoldings = portfolios.contains { !$0.holdings.isEmpty }
@@ -37,7 +36,7 @@ class SnapshotService {
         var allHoldingPnLs: [HoldingDailyPnL] = []
 
         do {
-            // 为每个账户生成独立快照
+            // 为每个账户计算盈亏
             for portfolio in portfolios {
                 guard !portfolio.holdings.isEmpty else { continue }
 
@@ -79,56 +78,143 @@ class SnapshotService {
                     allHoldingPnLs.append(holdingDailyPnL)
                 }
 
-                // 计算账户级别的百分比
-                let dailyPnLPercent = (valueInBase - dailyPnLInBase) > 0
-                    ? (dailyPnLInBase / (valueInBase - dailyPnLInBase)) * 100
-                    : 0
+                // 周末跳过保存快照到 SwiftData
+                if !isWeekend {
+                    let dailyPnLPercent = (valueInBase - dailyPnLInBase) > 0
+                        ? (dailyPnLInBase / (valueInBase - dailyPnLInBase)) * 100
+                        : 0
 
-                // 保存或更新账户快照
-                try saveOrUpdateSnapshot(
-                    date: today,
-                    portfolioID: portfolio.id.uuidString,
-                    totalValue: valueInBase,
-                    totalCost: costInBase,
-                    dailyPnL: dailyPnLInBase,
-                    dailyPnLPercent: dailyPnLPercent,
-                    cumulativePnL: valueInBase - costInBase,
-                    modelContext: modelContext
-                )
+                    try saveOrUpdateSnapshot(
+                        date: today,
+                        portfolioID: portfolio.id.uuidString,
+                        totalValue: valueInBase,
+                        totalCost: costInBase,
+                        dailyPnL: dailyPnLInBase,
+                        dailyPnLPercent: dailyPnLPercent,
+                        cumulativePnL: valueInBase - costInBase,
+                        modelContext: modelContext
+                    )
+                }
             }
 
-            // 生成全局汇总快照
+            // 生成全局汇总快照（仅工作日保存到 SwiftData）
             let globalDailyPnLPercent = (globalValue - globalDailyPnL) > 0
                 ? (globalDailyPnL / (globalValue - globalDailyPnL)) * 100
                 : 0
 
-            var breakdownItems: [AssetBreakdown] = []
-            for (assetType, values) in assetTypeValues {
-                breakdownItems.append(AssetBreakdown(
-                    assetType: assetType,
-                    value: values.value,
-                    cost: values.cost,
-                    pnl: values.pnl,
-                    currency: baseCurrency
-                ))
+            if !isWeekend {
+                var breakdownItems: [AssetBreakdown] = []
+                for (assetType, values) in assetTypeValues {
+                    breakdownItems.append(AssetBreakdown(
+                        assetType: assetType,
+                        value: values.value,
+                        cost: values.cost,
+                        pnl: values.pnl,
+                        currency: baseCurrency
+                    ))
+                }
+
+                try saveOrUpdateSnapshot(
+                    date: today,
+                    portfolioID: nil,
+                    totalValue: globalValue,
+                    totalCost: globalCost,
+                    dailyPnL: globalDailyPnL,
+                    dailyPnLPercent: globalDailyPnLPercent,
+                    cumulativePnL: globalValue - globalCost,
+                    breakdown: breakdownItems,
+                    holdingPnLs: allHoldingPnLs,
+                    modelContext: modelContext
+                )
+
+                try modelContext.save()
             }
 
-            try saveOrUpdateSnapshot(
-                date: today,
-                portfolioID: nil,
+            // 始终同步 Widget 数据（包括周末）
+            syncToWidgetDefaults(
                 totalValue: globalValue,
-                totalCost: globalCost,
                 dailyPnL: globalDailyPnL,
                 dailyPnLPercent: globalDailyPnLPercent,
-                cumulativePnL: globalValue - globalCost,
-                breakdown: breakdownItems,
-                holdingPnLs: allHoldingPnLs,
-                modelContext: modelContext
+                baseCurrency: baseCurrency,
+                holdings: portfolios.flatMap(\.holdings).filter { $0.totalQuantity > 0 }
             )
 
-            try modelContext.save()
+            // 将当月每日盈亏数据写入 UserDefaults，供 MonthHeatmapWidget 使用
+            syncMonthDataToWidget(modelContext: modelContext)
+
+            // 通知 Widget 刷新数据
+            WidgetCenter.shared.reloadAllTimelines()
         } catch {
             print("Failed to save snapshots: \(error)")
+        }
+    }
+
+    // MARK: - Widget Data Sync
+
+    private static let appGroupID = "group.com.gainday.shared"
+
+    /// 将关键数据写入 App Group UserDefaults，Widget 直接读取
+    private func syncToWidgetDefaults(
+        totalValue: Double,
+        dailyPnL: Double,
+        dailyPnLPercent: Double,
+        baseCurrency: String,
+        holdings: [Holding]
+    ) {
+        guard let defaults = UserDefaults(suiteName: Self.appGroupID) else { return }
+
+        // PnL 数据
+        defaults.set(totalValue, forKey: "widget_totalValue")
+        defaults.set(dailyPnL, forKey: "widget_dailyPnL")
+        defaults.set(dailyPnLPercent, forKey: "widget_dailyPnLPercent")
+        defaults.set(baseCurrency, forKey: "widget_baseCurrency")
+        defaults.set(Date().timeIntervalSince1970, forKey: "widget_lastUpdate")
+
+        // 持仓列表（供 WatchlistWidget 使用）
+        let holdingsList = holdings.prefix(6).map { h -> [String: Any] in
+            let market = Market(rawValue: h.market) ?? .JP
+            return [
+                "symbol": h.symbol,
+                "name": h.name,
+                "currency": market.currency
+            ]
+        }
+        defaults.set(holdingsList, forKey: "widget_holdings")
+    }
+
+    /// 将当月每日盈亏数据写入 App Group UserDefaults，供 MonthHeatmapWidget 使用
+    private func syncMonthDataToWidget(modelContext: ModelContext) {
+        guard let defaults = UserDefaults(suiteName: Self.appGroupID) else { return }
+
+        let calendar = Calendar.current
+        let now = Date()
+        let year = calendar.component(.year, from: now)
+        let month = calendar.component(.month, from: now)
+
+        guard let monthStart = calendar.date(from: DateComponents(year: year, month: month, day: 1)),
+              let monthEnd = calendar.date(byAdding: .month, value: 1, to: monthStart) else { return }
+
+        do {
+            let allSnapshots = try modelContext.fetch(FetchDescriptor<DailySnapshot>())
+            let monthSnapshots = allSnapshots.filter { snap in
+                snap.portfolioID == nil && snap.date >= monthStart && snap.date < monthEnd
+            }
+
+            // 序列化为 [[String: Any]] 格式
+            let monthData = monthSnapshots.map { snap -> [String: Any] in
+                let day = calendar.component(.day, from: snap.date)
+                return [
+                    "day": day,
+                    "dailyPnL": snap.dailyPnL,
+                    "dailyPnLPercent": snap.dailyPnLPercent
+                ]
+            }
+
+            defaults.set(monthData, forKey: "widget_monthPnL")
+            defaults.set(year, forKey: "widget_monthPnL_year")
+            defaults.set(month, forKey: "widget_monthPnL_month")
+        } catch {
+            print("Failed to sync month data to widget: \(error)")
         }
     }
 
@@ -569,6 +655,10 @@ class SnapshotService {
             if totalCreated > 0 {
                 try modelContext.save()
                 print("[Migration] Created \(createdCount) portfolio + \(globalCreatedCount) global snapshots")
+
+                // 同步当月数据到 Widget
+                syncMonthDataToWidget(modelContext: modelContext)
+                WidgetCenter.shared.reloadAllTimelines()
             } else {
                 print("[Migration] No new snapshots needed")
             }

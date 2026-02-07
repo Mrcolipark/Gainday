@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import WidgetKit
 
 /// 添加交易记录 - 统一设计语言
 struct AddTransactionView: View {
@@ -55,13 +56,14 @@ struct AddTransactionView: View {
         }
     }
 
-    /// NISA 额度验证警告
+    /// NISA 额度验证警告（超额时阻止保存）
     private var nisaQuotaWarning: String? {
         guard currentAccountType.isNISA, transactionType == .buy else { return nil }
 
         let amount = currentTransactionAmount
         guard amount > 0 else { return nil }
 
+        // 年度额度检查
         switch currentAccountType {
         case .nisa_tsumitate:
             if amount > nisaQuota.tsumitateAnnualRemaining {
@@ -74,6 +76,20 @@ struct AddTransactionView: View {
         default:
             break
         }
+
+        // 生涯额度检查（1800万円上限）
+        if amount > nisaQuota.lifetimeRemaining {
+            return "超出NISA生涯非課税枠".localized + " (\(formatManYen(nisaQuota.lifetimeRemaining)))"
+        }
+
+        // 成長枠生涯上限检查（1200万円）
+        if currentAccountType == .nisa_growth {
+            let growthLifetimeRemaining = max(0, nisaQuota.growthLifetimeLimit - nisaQuota.growthLifetimeUsed)
+            if amount > growthLifetimeRemaining {
+                return "超出成長枠生涯上限".localized + " (\(formatManYen(growthLifetimeRemaining)))"
+            }
+        }
+
         return nil
     }
 
@@ -774,6 +790,9 @@ struct AddTransactionView: View {
 
         if date > Date() { return false }
 
+        // NISA 额度超限时阻止保存
+        if nisaQuotaWarning != nil { return false }
+
         if isMutualFund && investmentMode == .fixedAmount {
             guard let amount = Double(investmentAmount), amount > 0,
                   let nav = Double(price), nav > 0 else { return false }
@@ -939,6 +958,9 @@ struct AddTransactionView: View {
 
         // 通知日历视图刷新
         NotificationCenter.default.post(name: .portfolioDataDidChange, object: nil)
+
+        // 通知 Widget 刷新
+        WidgetCenter.shared.reloadAllTimelines()
 
         #if os(iOS)
         UINotificationFeedbackGenerator().notificationOccurred(.success)

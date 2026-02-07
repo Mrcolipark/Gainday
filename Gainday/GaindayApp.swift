@@ -29,7 +29,7 @@ struct GaindayApp: App {
             PriceCache.self
         ])
 
-        // 使用 App Group 共享目录存储数据库，以便 Widget 访问
+        // 使用 App Group 共享目录存储数据库
         let modelConfiguration = ModelConfiguration(
             schema: schema,
             isStoredInMemoryOnly: false,
@@ -75,6 +75,8 @@ struct GaindayApp: App {
                     appearanceManager.applyAppearance()
                     // 执行数据迁移
                     performDataMigrations()
+                    // 同步基准货币到 App Group，供 Widget 使用
+                    syncBaseCurrencyToAppGroup()
                 }
         }
         .modelContainer(sharedModelContainer)
@@ -84,6 +86,11 @@ struct GaindayApp: App {
     private func performDataMigrations() {
         let context = sharedModelContainer.mainContext
         DataMigrationService.performMigrations(modelContext: context)
+    }
+
+    private func syncBaseCurrencyToAppGroup() {
+        let baseCurrency = UserDefaults.standard.string(forKey: "baseCurrency") ?? "JPY"
+        UserDefaults(suiteName: Self.appGroupIdentifier)?.set(baseCurrency, forKey: "baseCurrency")
     }
 
     private func configureAppearance() {
