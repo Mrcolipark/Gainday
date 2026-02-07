@@ -8,6 +8,7 @@ class Holding {
     var name: String
     var assetType: String
     var market: String
+    var accountType: String
     @Relationship(deleteRule: .cascade, inverse: \Transaction.holding)
     var transactions: [Transaction]
     var portfolio: Portfolio?
@@ -18,6 +19,7 @@ class Holding {
         name: String,
         assetType: String = AssetType.stock.rawValue,
         market: String = Market.JP.rawValue,
+        accountType: String = AccountType.general.rawValue,
         transactions: [Transaction] = [],
         portfolio: Portfolio? = nil
     ) {
@@ -26,6 +28,7 @@ class Holding {
         self.name = name
         self.assetType = assetType
         self.market = market
+        self.accountType = accountType
         self.transactions = transactions
         self.portfolio = portfolio
     }
@@ -36,6 +39,23 @@ class Holding {
 
     var marketEnum: Market {
         Market(rawValue: market) ?? .JP
+    }
+
+    /// 账户类型 - 优先从 portfolio 获取，向后兼容使用自身字段
+    var accountTypeEnum: AccountType {
+        // 优先从 portfolio 获取账户类型（新架构）
+        if let portfolio = portfolio {
+            return portfolio.accountTypeEnum
+        }
+        // 向后兼容：处理旧数据中的 "normal" 值
+        if accountType == "normal" {
+            return .general
+        }
+        return AccountType(rawValue: accountType) ?? .general
+    }
+
+    var isNISA: Bool {
+        accountTypeEnum.isNISA
     }
 
     var totalQuantity: Double {

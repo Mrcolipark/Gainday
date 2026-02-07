@@ -8,6 +8,7 @@ class Holding {
     var name: String
     var assetType: String
     var market: String
+    var accountType: String  // 账户类型：从 portfolio 继承（保留用于兼容性）
     @Relationship(deleteRule: .cascade, inverse: \Transaction.holding)
     var transactions: [Transaction]
     var portfolio: Portfolio?
@@ -18,6 +19,7 @@ class Holding {
         name: String,
         assetType: String = AssetType.stock.rawValue,
         market: String = Market.JP.rawValue,
+        accountType: String = AccountType.general.rawValue,
         transactions: [Transaction] = [],
         portfolio: Portfolio? = nil
     ) {
@@ -26,6 +28,7 @@ class Holding {
         self.name = name
         self.assetType = assetType
         self.market = market
+        self.accountType = accountType
         self.transactions = transactions
         self.portfolio = portfolio
     }
@@ -36,6 +39,26 @@ class Holding {
 
     var marketEnum: Market {
         Market(rawValue: market) ?? .JP
+    }
+
+    /// 账户类型 - 使用自身字段（已通过数据迁移同步）
+    var accountTypeEnum: AccountType {
+        // 处理旧数据中的 "normal" 值
+        if accountType == "normal" {
+            return .general
+        }
+        return AccountType(rawValue: accountType) ?? .general
+    }
+
+    /// 是否为 NISA 持仓
+    var isNISA: Bool {
+        accountTypeEnum.isNISA
+    }
+
+    /// 是否为つみたてNISA対象商品（仅对日本投信有意义）
+    var isTsumitateEligible: Bool {
+        guard marketEnum == .JP_FUND else { return false }
+        return TsumitateEligibleFundsService.knownEligibleFunds.contains(symbol.uppercased())
     }
 
     var totalQuantity: Double {

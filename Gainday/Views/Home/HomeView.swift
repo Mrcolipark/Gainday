@@ -11,12 +11,24 @@ struct HomeView: View {
     @State private var viewModel = HomeViewModel()
     @State private var animateCards = false
     @State private var portfolioForAddTransaction: Portfolio?
-    @State private var portfolioForWatchlist: Portfolio?
+    @State private var showNISAOverview = false
+    @State private var showAddAccount = false
     @AppStorage("baseCurrency") private var baseCurrency = "JPY"
+
+    /// 是否有 NISA 账户
+    private var hasNISAAccounts: Bool {
+        portfolios.contains { AccountType(rawValue: $0.accountType)?.isNISA == true }
+    }
+
+    /// 计算 NISA 额度
+    private var nisaQuota: NISAOverallQuota {
+        NISAQuotaCalculator.calculateOverall(holdings: portfolios.flatMap(\.holdings))
+    }
 
     var body: some View {
         @Bindable var vm = viewModel
         AppNavigationWrapper(title: "GainDay") {
+            ScrollViewReader { scrollProxy in
             ScrollView {
                 VStack(spacing: 16) {
                     // 品牌标题
@@ -70,8 +82,14 @@ struct HomeView: View {
                     .padding(.horizontal)
                     .opacity(animateCards ? 1 : 0)
 
+                    // NISA 概览卡片（仅 NISA 用户可见）
+                    if hasNISAAccounts {
+                        nisaQuickCard
+                            .opacity(animateCards ? 1 : 0)
+                    }
+
                     // 账户区块列表
-                    portfolioSections
+                    portfolioSections(scrollProxy: scrollProxy)
                         .opacity(animateCards ? 1 : 0)
 
                     // 空状态
@@ -87,6 +105,7 @@ struct HomeView: View {
                 }
                 .padding(.bottom, 30)
             }
+            } // ScrollViewReader
             .refreshable {
                 await viewModel.refreshAll(portfolios: portfolios, baseCurrency: baseCurrency, modelContext: modelContext)
             }
@@ -95,15 +114,14 @@ struct HomeView: View {
                 Task {
                     await viewModel.refreshAll(portfolios: portfolios, baseCurrency: baseCurrency, modelContext: modelContext)
                 }
-            }) { portfolio in
-                AddTransactionView(portfolios: [portfolio])
+            }) { preselected in
+                AddTransactionView(portfolios: [preselected] + portfolios.filter { $0.id != preselected.id })
             }
-            .sheet(item: $portfolioForWatchlist, onDismiss: {
-                Task {
-                    await viewModel.refreshAll(portfolios: portfolios, baseCurrency: baseCurrency, modelContext: modelContext)
-                }
-            }) { portfolio in
-                AddToWatchlistView(portfolio: portfolio)
+            .sheet(isPresented: $showNISAOverview) {
+                NISAOverviewView()
+            }
+            .sheet(isPresented: $showAddAccount) {
+                AddAccountSheet()
             }
             .task {
                 await viewModel.refreshAll(portfolios: portfolios, baseCurrency: baseCurrency, modelContext: modelContext)
@@ -124,213 +142,109 @@ struct HomeView: View {
     // MARK: - 账户区块
 
     @ViewBuilder
-    private var portfolioSections: some View {
-        if !viewModel.portfolioPnLs.isEmpty {
-            ForEach(viewModel.portfolioPnLs, id: \.portfolio.id) { portfolioPnL in
-                PortfolioSectionView(
-                    portfolioPnL: portfolioPnL,
-                    quotes: viewModel.quotes,
-                    displayMode: viewModel.displayMode,
-                    showPercent: viewModel.showPercentChange,
-                    isExpanded: viewModel.isPortfolioExpanded(portfolioPnL.portfolio.id.uuidString),
-                    onToggle: {
-                        viewModel.togglePortfolioExpansion(portfolioPnL.portfolio.id.uuidString)
-                    },
-                    onRefresh: {
-                        Task {
-                            await viewModel.refreshAll(portfolios: portfolios, baseCurrency: baseCurrency, modelContext: modelContext)
-                        }
+    private func portfolioSections(scrollProxy: ScrollViewProxy) -> some View {
+        ForEach(viewModel.portfolioPnLs, id: \.portfolio.id) { portfolioPnL in
+            PortfolioSectionView(
+                portfolioPnL: portfolioPnL,
+                quotes: viewModel.quotes,
+                displayMode: viewModel.displayMode,
+                showPercent: viewModel.showPercentChange,
+                isExpanded: viewModel.isPortfolioExpanded(portfolioPnL.portfolio.id.uuidString),
+                scrollProxy: scrollProxy,
+                onToggle: {
+                    viewModel.togglePortfolioExpansion(portfolioPnL.portfolio.id.uuidString)
+                },
+                onRefresh: {
+                    Task {
+                        await viewModel.refreshAll(portfolios: portfolios, baseCurrency: baseCurrency, modelContext: modelContext)
                     }
-                )
-                .id("\(portfolioPnL.portfolio.id)-\(viewModel.displayMode.rawValue)")
-                .padding(.horizontal)
-            }
-        } else if !portfolios.isEmpty {
-            ForEach(portfolios) { portfolio in
-                fallbackPortfolioSection(portfolio)
-                    .id("\(portfolio.id)-\(viewModel.displayMode.rawValue)-fallback")
-                    .padding(.horizontal)
-            }
+                }
+            )
+            .id("\(portfolioPnL.portfolio.id)-\(viewModel.displayMode.rawValue)")
+            .padding(.horizontal)
         }
     }
 
-    // MARK: - 后备账户区块
+    // MARK: - NISA 概览卡片
 
-    @ViewBuilder
-    private func fallbackPortfolioSection(_ portfolio: Portfolio) -> some View {
-        VStack(spacing: 0) {
-            HStack(spacing: 12) {
-                Circle()
-                    .fill(portfolio.tagColor)
-                    .frame(width: 10, height: 10)
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(portfolio.name)
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundStyle(AppColors.textPrimary)
-                    Text("\(portfolio.holdings.count) \("持仓".localized)")
-                        .font(.system(size: 13))
-                        .foregroundStyle(AppColors.textSecondary)
-                }
-
-                Spacer()
-            }
-            .padding(.vertical, 12)
-            .padding(.horizontal, 16)
-
-            Rectangle()
-                .fill(AppColors.dividerColor)
-                .frame(height: 1)
-                .padding(.horizontal, 16)
-
-            fallbackHoldingsContent(portfolio: portfolio)
-        }
-        .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(AppColors.cardSurface)
-        )
-    }
-
-    // MARK: - 后备持仓内容
-
-    @ViewBuilder
-    private func fallbackHoldingsContent(portfolio: Portfolio) -> some View {
-        switch viewModel.displayMode {
-        case .basic:
-            VStack(spacing: 0) {
-                if portfolio.holdings.isEmpty {
-                    fallbackEmptyState(portfolio: portfolio)
-                } else {
-                    ForEach(portfolio.holdings) { holding in
-                        HoldingRow(
-                            holding: holding,
-                            quote: viewModel.quotes[holding.symbol],
-                            displayMode: .basic,
-                            showPercent: viewModel.showPercentChange
-                        )
-
-                        if holding.id != portfolio.holdings.last?.id {
-                            Rectangle()
-                                .fill(AppColors.dividerColor)
-                                .frame(height: 1)
-                                .padding(.leading, 16)
-                        }
-                    }
-
-                    fallbackAddButton(portfolio: portfolio)
-                        .padding(.top, 8)
-                }
-            }
-            .padding(.horizontal, 12)
-            .padding(.bottom, 10)
-
-        case .details:
-            VStack(spacing: 8) {
-                if portfolio.holdings.isEmpty {
-                    fallbackEmptyState(portfolio: portfolio)
-                } else {
-                    HoldingDetailsTable(
-                        holdings: portfolio.holdings,
-                        quotes: viewModel.quotes,
-                        showPercent: viewModel.showPercentChange,
-                        onHoldingTap: { _ in }
-                    )
-                    .frame(minHeight: CGFloat(portfolio.holdings.count) * 56 + 48)
-
-                    fallbackAddButton(portfolio: portfolio)
-                }
-            }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 8)
-
-        case .holdings:
-            VStack(spacing: 8) {
-                if portfolio.holdings.isEmpty {
-                    fallbackEmptyState(portfolio: portfolio)
-                } else {
-                    ForEach(portfolio.holdings) { holding in
-                        ExpandableHoldingRow(
-                            holding: holding,
-                            quote: viewModel.quotes[holding.symbol],
-                            showPercent: viewModel.showPercentChange
-                        )
-                    }
-
-                    fallbackAddButton(portfolio: portfolio)
-                }
-            }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 10)
-        }
-    }
-
-    // MARK: - 后备空状态
-
-    private var fallbackAddButtonTitle: String {
-        viewModel.displayMode == .holdings ? "添加持仓".localized : "添加标的".localized
-    }
-
-    private var fallbackEmptyStateTitle: String {
-        viewModel.displayMode == .holdings ? "暂无持仓".localized : "暂无标的".localized
-    }
-
-    private func showAddView(for portfolio: Portfolio) {
-        if viewModel.displayMode == .holdings {
-            portfolioForAddTransaction = portfolio
-        } else {
-            portfolioForWatchlist = portfolio
-        }
-    }
-
-    private func fallbackEmptyState(portfolio: Portfolio) -> some View {
-        VStack(spacing: 12) {
-            Image(systemName: viewModel.displayMode == .holdings ? "chart.line.uptrend.xyaxis" : "star")
-                .font(.system(size: 32))
-                .foregroundStyle(AppColors.textTertiary)
-
-            Text(fallbackEmptyStateTitle)
-                .font(.system(size: 15))
-                .foregroundStyle(AppColors.textSecondary)
-
-            Button {
-                showAddView(for: portfolio)
-            } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "plus.circle.fill")
-                    Text(fallbackAddButtonTitle)
-                }
-                .font(.system(size: 15, weight: .medium))
-                .foregroundStyle(.white)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 10)
-                .background(
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(AppColors.profit)
-                )
-            }
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 24)
-    }
-
-    private func fallbackAddButton(portfolio: Portfolio) -> some View {
+    private var nisaQuickCard: some View {
         Button {
-            showAddView(for: portfolio)
+            showNISAOverview = true
         } label: {
-            HStack(spacing: 6) {
-                Image(systemName: "plus")
-                    .font(.system(size: 12, weight: .semibold))
-                Text(fallbackAddButtonTitle)
-                    .font(.system(size: 13, weight: .medium))
+            VStack(spacing: 12) {
+                HStack {
+                    HStack(spacing: 8) {
+                        Image(systemName: "leaf.fill")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(AccountType.nisa_tsumitate.color)
+
+                        Text("NISA 非課税枠".localized)
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(AppColors.textPrimary)
+                    }
+
+                    Spacer()
+
+                    HStack(spacing: 4) {
+                        Text("详情".localized)
+                            .font(.system(size: 13))
+                            .foregroundStyle(AppColors.textSecondary)
+
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(AppColors.textTertiary)
+                    }
+                }
+
+                // 年度额度进度
+                HStack(spacing: 16) {
+                    // つみたて枠
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack(spacing: 4) {
+                            Circle()
+                                .fill(AccountType.nisa_tsumitate.color)
+                                .frame(width: 6, height: 6)
+
+                            Text("つみたて")
+                                .font(.system(size: 11))
+                                .foregroundStyle(AppColors.textSecondary)
+                        }
+
+                        NISACompactProgressBar(
+                            used: nisaQuota.tsumitateAnnualUsed,
+                            limit: nisaQuota.tsumitateAnnualLimit,
+                            color: AccountType.nisa_tsumitate.color
+                        )
+                    }
+
+                    // 成長枠
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack(spacing: 4) {
+                            Circle()
+                                .fill(AccountType.nisa_growth.color)
+                                .frame(width: 6, height: 6)
+
+                            Text("成長")
+                                .font(.system(size: 11))
+                                .foregroundStyle(AppColors.textSecondary)
+                        }
+
+                        NISACompactProgressBar(
+                            used: nisaQuota.growthAnnualUsed,
+                            limit: nisaQuota.growthAnnualLimit,
+                            color: AccountType.nisa_growth.color
+                        )
+                    }
+                }
             }
-            .foregroundStyle(AppColors.textSecondary)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 10)
+            .padding(16)
             .background(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .stroke(AppColors.dividerColor, lineWidth: 1)
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(AppColors.cardSurface)
             )
         }
+        .buttonStyle(.plain)
+        .padding(.horizontal)
     }
 
     // MARK: - 空状态
@@ -349,6 +263,23 @@ struct HomeView: View {
                 Text("在设置中添加您的第一个账户".localized)
                     .font(.system(size: 15))
                     .foregroundStyle(AppColors.textSecondary)
+            }
+
+            Button {
+                showAddAccount = true
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "plus.circle.fill")
+                    Text("创建账户".localized)
+                }
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(.white)
+                .padding(.horizontal, 20)
+                .padding(.vertical, 12)
+                .background(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(AppColors.profit)
+                )
             }
         }
         .frame(maxWidth: .infinity)

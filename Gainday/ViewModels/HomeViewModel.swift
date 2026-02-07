@@ -105,6 +105,43 @@ class HomeViewModel {
             return
         }
 
+        // 在 API 调用前先生成占位 PnLs，确保 portfolioPnLs 始终不为空
+        if portfolioPnLs.isEmpty {
+            var placeholderPnLs: [PnLCalculationService.PortfolioPnL] = []
+            for portfolio in portfolios {
+                let pnl = PnLCalculationService.PortfolioPnL(
+                    portfolio: portfolio,
+                    totalValue: 0,
+                    totalCost: 0,
+                    totalUnrealizedPnL: 0,
+                    totalUnrealizedPnLPercent: 0,
+                    dailyPnL: 0,
+                    dailyPnLPercent: 0,
+                    holdingPnLs: portfolio.holdings.map { holding in
+                        PnLCalculationService.HoldingPnL(
+                            holding: holding,
+                            currentPrice: 0,
+                            previousClose: 0,
+                            marketValue: 0,
+                            costBasis: holding.averageCost * holding.totalQuantity,
+                            unrealizedPnL: 0,
+                            unrealizedPnLPercent: 0,
+                            dailyPnL: 0,
+                            dailyPnLPercent: 0,
+                            marketState: nil,
+                            effectivePrice: 0
+                        )
+                    }
+                )
+                placeholderPnLs.append(pnl)
+            }
+            portfolioPnLs = placeholderPnLs
+            // Auto-expand all portfolios
+            for portfolio in portfolios {
+                expandedPortfolios.insert(portfolio.id.uuidString)
+            }
+        }
+
         do {
             // 1. 获取所有持仓的报价（区分普通股票和日本投信）
             let holdings = portfolios.flatMap(\.holdings)

@@ -1,4 +1,5 @@
 import SwiftUI
+import SwiftData
 
 /// iPhone 股票 App 风格的投资组合区块
 struct PortfolioSectionView: View {
@@ -7,15 +8,15 @@ struct PortfolioSectionView: View {
     let displayMode: PortfolioDisplayMode
     let showPercent: Bool
     let isExpanded: Bool
+    var scrollProxy: ScrollViewProxy?
     let onToggle: () -> Void
     var onRefresh: (() -> Void)?
 
     @Environment(\.modelContext) private var modelContext
+    @Query(sort: \Portfolio.sortOrder) private var allPortfolios: [Portfolio]
     @State private var animateIn = false
-    @State private var selectedHolding: Holding?
-    @State private var showHoldingDetail = false
+    @State private var navigateToHolding: Holding?
     @State private var showAddTransaction = false
-    @State private var showAddToWatchlist = false
     @State private var holdingToDelete: Holding?
     @State private var showDeleteConfirm = false
 
@@ -25,6 +26,24 @@ struct PortfolioSectionView: View {
 
     private var isPositive: Bool {
         portfolioPnL.dailyPnL >= 0
+    }
+
+    /// 计算 basic 模式列表高度（考虑盘前/盘后额外行）
+    private var basicModeListHeight: CGFloat {
+        let baseRowHeight: CGFloat = 56
+        let extendedHoursExtra: CGFloat = 18
+        var total: CGFloat = 0
+        for holdingPnL in portfolioPnL.holdingPnLs {
+            total += baseRowHeight
+            let h = holdingPnL.holding
+            if h.marketEnum == .US,
+               let q = quotes[h.symbol],
+               q.marketState != MarketState.regular.rawValue,
+               q.postMarketPrice != nil || q.preMarketPrice != nil {
+                total += extendedHoursExtra
+            }
+        }
+        return total
     }
 
     var body: some View {
@@ -52,25 +71,16 @@ struct PortfolioSectionView: View {
                 animateIn = true
             }
         }
-        .sheet(isPresented: $showHoldingDetail) {
-            if let holding = selectedHolding {
-                NavigationStack {
-                    HoldingDetailView(
-                        holding: holding,
-                        quote: quotes[holding.symbol]
-                    )
-                }
-            }
+        .navigationDestination(item: $navigateToHolding) { holding in
+            HoldingDetailView(
+                holding: holding,
+                quote: quotes[holding.symbol]
+            )
         }
         .sheet(isPresented: $showAddTransaction, onDismiss: {
             onRefresh?()
         }) {
-            AddTransactionView(portfolios: [portfolio])
-        }
-        .sheet(isPresented: $showAddToWatchlist, onDismiss: {
-            onRefresh?()
-        }) {
-            AddToWatchlistView(portfolio: portfolio)
+            AddTransactionView(portfolios: [portfolio] + allPortfolios.filter { $0.id != portfolio.id })
         }
         .alert("确认删除".localized, isPresented: $showDeleteConfirm) {
             Button("取消".localized, role: .cancel) {
@@ -112,13 +122,9 @@ struct PortfolioSectionView: View {
         holdingToDelete = nil
     }
 
-    /// 根据当前模式显示添加视图
+    /// 显示添加交易视图（所有模式统一入口）
     private func showAddView() {
-        if displayMode == .holdings {
-            showAddTransaction = true
-        } else {
-            showAddToWatchlist = true
-        }
+        showAddTransaction = true
     }
 
     // MARK: - 区块头部
@@ -232,7 +238,7 @@ struct PortfolioSectionView: View {
                 }
                 .listStyle(.plain)
                 .scrollDisabled(true)
-                .frame(height: CGFloat(portfolioPnL.holdingPnLs.count) * 56)
+                .frame(height: basicModeListHeight)
 
                 addHoldingButton
                     .padding(.top, 8)
@@ -258,8 +264,7 @@ struct PortfolioSectionView: View {
                     quotes: quotes,
                     showPercent: showPercent,
                     onHoldingTap: { holding in
-                        selectedHolding = holding
-                        showHoldingDetail = true
+                        navigateToHolding = holding
                     },
                     onHoldingDelete: { holding in
                         holdingToDelete = holding
@@ -283,16 +288,15 @@ struct PortfolioSectionView: View {
             if portfolioPnL.holdingPnLs.isEmpty {
                 emptyHoldingsState
             } else {
-                List {
+                // 使用 VStack 替代 List，避免固定高度导致展开内容被裁剪
+                VStack(spacing: 8) {
                     ForEach(portfolioPnL.holdingPnLs, id: \.holding.id) { holdingPnL in
                         ExpandableHoldingRow(
                             holding: holdingPnL.holding,
                             quote: quotes[holdingPnL.holding.symbol],
-                            showPercent: showPercent
+                            showPercent: showPercent,
+                            scrollProxy: scrollProxy
                         )
-                        .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
-                        .listRowBackground(Color.clear)
-                        .listRowSeparator(.hidden)
                         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                             Button(role: .destructive) {
                                 holdingToDelete = holdingPnL.holding
@@ -301,11 +305,15 @@ struct PortfolioSectionView: View {
                                 Label("删除".localized, systemImage: "trash")
                             }
                         }
+                        .contextMenu {
+                            Button {
+                                navigateToHolding = holdingPnL.holding
+                            } label: {
+                                Label("查看详情".localized, systemImage: "info.circle")
+                            }
+                        }
                     }
                 }
-                .listStyle(.plain)
-                .scrollDisabled(true)
-                .frame(height: CGFloat(portfolioPnL.holdingPnLs.count) * 80)
 
                 addHoldingButton
             }
@@ -317,16 +325,16 @@ struct PortfolioSectionView: View {
     // MARK: - 共享组件
 
     private var addButtonTitle: String {
-        displayMode == .holdings ? "添加持仓".localized : "添加标的".localized
+        "添加持仓".localized
     }
 
     private var emptyStateTitle: String {
-        displayMode == .holdings ? "暂无持仓".localized : "暂无标的".localized
+        "暂无持仓".localized
     }
 
     private var emptyHoldingsState: some View {
         VStack(spacing: 12) {
-            Image(systemName: displayMode == .holdings ? "chart.line.uptrend.xyaxis" : "star")
+            Image(systemName: "chart.line.uptrend.xyaxis")
                 .font(.system(size: 32))
                 .foregroundStyle(AppColors.textTertiary)
 

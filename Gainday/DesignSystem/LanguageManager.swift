@@ -107,6 +107,7 @@ final class LanguageManager {
         // Settings - Accounts
         "账户管理": ["zh-Hans": "账户管理", "zh-Hant": "帳戶管理", "en": "Accounts", "ja": "口座管理"],
         "添加账户": ["zh-Hans": "添加账户", "zh-Hant": "新增帳戶", "en": "Add Account", "ja": "口座を追加"],
+        "创建账户": ["zh-Hans": "创建账户", "zh-Hant": "建立帳戶", "en": "Create Account", "ja": "口座を作成"],
         "持仓": ["zh-Hans": "持仓", "zh-Hant": "持倉", "en": "Holdings", "ja": "保有"],
         "账户名称": ["zh-Hans": "账户名称", "zh-Hant": "帳戶名稱", "en": "Account Name", "ja": "口座名"],
         "账户类型": ["zh-Hans": "账户类型", "zh-Hant": "帳戶類型", "en": "Account Type", "ja": "口座タイプ"],
@@ -418,6 +419,7 @@ final class LanguageManager {
         "确定要删除吗": ["zh-Hans": "确定要删除吗？", "zh-Hant": "確定要刪除嗎？", "en": "Are you sure?", "ja": "本当に削除しますか？"],
         "该账户下的所有持仓和交易记录都将被永久删除，此操作无法恢复。": ["zh-Hans": "该账户下的所有持仓和交易记录都将被永久删除，此操作无法恢复。", "zh-Hant": "該帳戶下的所有持倉和交易記錄都將被永久刪除，此操作無法恢復。", "en": "All holdings and transactions will be permanently deleted. This action cannot be undone.", "ja": "すべての保有と取引記録が永久に削除されます。この操作は取り消せません。"],
         "该持仓的所有交易记录都将被永久删除。": ["zh-Hans": "该持仓的所有交易记录都将被永久删除。", "zh-Hant": "該持倉的所有交易記錄都將被永久刪除。", "en": "All transactions will be permanently deleted.", "ja": "すべての取引記録が永久に削除されます。"],
+        "删除标的": ["zh-Hans": "删除标的", "zh-Hant": "刪除標的", "en": "Delete Holding", "ja": "銘柄を削除"],
 
         // Import Result
         "成功导入": ["zh-Hans": "成功导入", "zh-Hant": "成功匯入", "en": "Successfully imported", "ja": "インポート成功"],
@@ -464,6 +466,7 @@ final class LanguageManager {
         "可选": ["zh-Hans": "可选", "zh-Hant": "可選", "en": "Optional", "ja": "任意"],
         "取得口数": ["zh-Hans": "取得口数", "zh-Hant": "取得口數", "en": "Units Acquired", "ja": "取得口数"],
         "总金额": ["zh-Hans": "总金额", "zh-Hant": "總金額", "en": "Total Amount", "ja": "総額"],
+        "获取最新基准价格": ["zh-Hans": "获取最新基准价格", "zh-Hant": "取得最新基準價格", "en": "Fetch Latest NAV", "ja": "最新基準価格を取得"],
 
         // Add Transaction Form - Validation
         "交易日期不能是未来日期": ["zh-Hans": "交易日期不能是未来日期", "zh-Hant": "交易日期不能是未來日期", "en": "Date cannot be in the future", "ja": "未来の日付は指定できません"],
@@ -487,6 +490,34 @@ final class LanguageManager {
 
         // Account Types
         "普通账户": ["zh-Hans": "普通账户", "zh-Hant": "普通帳戶", "en": "Standard", "ja": "特定口座"],
+        "一般": ["zh-Hans": "一般", "zh-Hant": "一般", "en": "General", "ja": "一般"],
+        "NISA つみたて枠": ["zh-Hans": "NISA 积立枠", "zh-Hant": "NISA 積立枠", "en": "NISA Tsumitate", "ja": "つみたて投資枠"],
+        "NISA 成長枠": ["zh-Hans": "NISA 成长枠", "zh-Hant": "NISA 成長枠", "en": "NISA Growth", "ja": "成長投資枠"],
+
+        // NISA Related
+        "年度額度": ["zh-Hans": "年度额度", "zh-Hant": "年度額度", "en": "Annual Limit", "ja": "年間投資枠"],
+        "生涯額度": ["zh-Hans": "生涯额度", "zh-Hant": "生涯額度", "en": "Lifetime Limit", "ja": "生涯投資枠"],
+        "剩余额度": ["zh-Hans": "剩余额度", "zh-Hant": "剩餘額度", "en": "Remaining", "ja": "残り枠"],
+        "已使用": ["zh-Hans": "已使用", "zh-Hant": "已使用", "en": "Used", "ja": "利用済み"],
+        "NISA 概览": ["zh-Hans": "NISA 概览", "zh-Hant": "NISA 概覽", "en": "NISA Overview", "ja": "NISA概況"],
+        "つみたて投資枠": ["zh-Hans": "积立投资枠", "zh-Hant": "積立投資枠", "en": "Tsumitate", "ja": "つみたて投資枠"],
+        "成長投資枠": ["zh-Hans": "成长投资枠", "zh-Hant": "成長投資枠", "en": "Growth", "ja": "成長投資枠"],
+        "NISA 持仓": ["zh-Hans": "NISA 持仓", "zh-Hant": "NISA 持倉", "en": "NISA Holdings", "ja": "NISA保有"],
+        "非課税枠": ["zh-Hans": "免税额度", "zh-Hant": "免稅額度", "en": "Tax-Free Quota", "ja": "非課税枠"],
+        "NISA 非課税枠": ["zh-Hans": "NISA 免税额度", "zh-Hant": "NISA 免稅額度", "en": "NISA Tax-Free Quota", "ja": "NISA非課税枠"],
+        "年間120万円": ["zh-Hans": "年额120万円", "zh-Hant": "年額120萬円", "en": "¥1.2M/year", "ja": "年間120万円"],
+        "年間240万円": ["zh-Hans": "年额240万円", "zh-Hant": "年額240萬円", "en": "¥2.4M/year", "ja": "年間240万円"],
+        "万円": ["zh-Hans": "万円", "zh-Hant": "萬円", "en": "M yen", "ja": "万円"],
+        "年度投资": ["zh-Hans": "年度投资", "zh-Hant": "年度投資", "en": "Annual Investment", "ja": "年間投資額"],
+        "生涯投资": ["zh-Hans": "生涯投资", "zh-Hant": "生涯投資", "en": "Lifetime Investment", "ja": "生涯投資額"],
+        "总资产": ["zh-Hans": "总资产", "zh-Hant": "總資產", "en": "Total Assets", "ja": "総資産"],
+        "只": ["zh-Hans": "只", "zh-Hant": "只", "en": "", "ja": "銘柄"],
+        "等": ["zh-Hans": "等", "zh-Hant": "等", "en": "etc.", "ja": "など"],
+
+        // Portfolio Grouping
+        "按账户": ["zh-Hans": "按账户", "zh-Hant": "按帳戶", "en": "By Account", "ja": "口座別"],
+        "按市场": ["zh-Hans": "按市场", "zh-Hant": "按市場", "en": "By Market", "ja": "市場別"],
+        "按资产": ["zh-Hans": "按资产", "zh-Hant": "按資產", "en": "By Asset", "ja": "資産別"],
 
         // Base Currency
         "日元 (JPY)": ["zh-Hans": "日元 (JPY)", "zh-Hant": "日元 (JPY)", "en": "JPY (¥)", "ja": "円 (JPY)"],
@@ -501,6 +532,24 @@ final class LanguageManager {
         // Placeholders
         "如 0331418A": ["zh-Hans": "如 0331418A", "zh-Hant": "如 0331418A", "en": "e.g. 0331418A", "ja": "例: 0331418A"],
         "如 7203.T": ["zh-Hans": "如 7203.T", "zh-Hant": "如 7203.T", "en": "e.g. 7203.T", "ja": "例: 7203.T"],
+
+        // NISA Refactoring (2026-02)
+        "只能买入対象商品": ["zh-Hans": "只能买入対象商品", "zh-Hant": "只能買入對象商品", "en": "Eligible funds only", "ja": "対象商品のみ"],
+        "超出つみたて枠年度剩余额度": ["zh-Hans": "超出つみたて枠年度剩余额度", "zh-Hant": "超出つみたて枠年度剩餘額度", "en": "Exceeds Tsumitate annual quota", "ja": "つみたて枠の年間残り枠を超過"],
+        "超出成長枠年度剩余额度": ["zh-Hans": "超出成长枠年度剩余额度", "zh-Hant": "超出成長枠年度剩餘額度", "en": "Exceeds Growth annual quota", "ja": "成長枠の年間残り枠を超過"],
+        "该商品不是つみたてNISA対象商品": ["zh-Hans": "该商品不是つみたてNISA対象商品", "zh-Hant": "該商品不是つみたてNISA對象商品", "en": "Not a Tsumitate NISA eligible fund", "ja": "つみたてNISA対象商品ではありません"],
+        "つみたてNISA対象商品": ["zh-Hans": "つみたてNISA対象商品", "zh-Hant": "つみたてNISA對象商品", "en": "Tsumitate NISA Eligible", "ja": "つみたてNISA対象商品"],
+        "対象商品": ["zh-Hans": "対象商品", "zh-Hant": "對象商品", "en": "Eligible", "ja": "対象商品"],
+        "対象": ["zh-Hans": "対象", "zh-Hant": "對象", "en": "Eligible", "ja": "対象"],
+        "未找到つみたてNISA対象商品": ["zh-Hans": "未找到つみたてNISA対象商品", "zh-Hant": "未找到つみたてNISA對象商品", "en": "No eligible funds found", "ja": "つみたてNISA対象商品が見つかりません"],
+        "请尝试搜索其他基金代码": ["zh-Hans": "请尝试搜索其他基金代码", "zh-Hant": "請嘗試搜尋其他基金代碼", "en": "Try other fund codes", "ja": "他のファンドコードをお試しください"],
+        "推荐対象商品": ["zh-Hans": "推荐対象商品", "zh-Hant": "推薦對象商品", "en": "Recommended Eligible Funds", "ja": "おすすめの対象商品"],
+        "（有持仓时不可修改）": ["zh-Hans": "（有持仓时不可修改）", "zh-Hant": "（有持倉時不可修改）", "en": "(Cannot change with holdings)", "ja": "（保有がある場合は変更不可）"],
+        "NISA 制度说明": ["zh-Hans": "NISA 制度说明", "zh-Hant": "NISA 制度說明", "en": "NISA Rules", "ja": "NISA制度について"],
+        "年間120万円・只能購入対象投資信託": ["zh-Hans": "年额120万円，只能购买対象投资信托", "zh-Hant": "年額120萬円，只能購買對象投資信託", "en": "¥1.2M/year, eligible funds only", "ja": "年間120万円・対象の投資信託のみ"],
+        "年間240万円・日本股票和投資信託": ["zh-Hans": "年额240万円，可购买日本股票和投资信托", "zh-Hant": "年額240萬円，可購買日本股票和投資信託", "en": "¥2.4M/year, JP stocks & funds", "ja": "年間240万円・日本株と投資信託"],
+        "合計1,800万円（うち成長枠1,200万円まで）": ["zh-Hans": "合计1,800万円（其中成长枠最多1,200万円）", "zh-Hant": "合計1,800萬円（其中成長枠最多1,200萬円）", "en": "¥18M total (max ¥12M Growth)", "ja": "合計1,800万円（うち成長枠1,200万円まで）"],
+        "売却した場合、翌年に枠が復活": ["zh-Hans": "卖出后，额度翌年恢复", "zh-Hant": "賣出後，額度翌年恢復", "en": "Quota recovers next year after selling", "ja": "売却した場合、翌年に枠が復活"],
     ]
 }
 

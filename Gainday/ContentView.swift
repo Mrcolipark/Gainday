@@ -8,6 +8,7 @@
 import SwiftUI
 import SwiftData
 
+
 struct ContentView: View {
     @State private var selectedTab = 0
     @State private var languageManager = LanguageManager.shared

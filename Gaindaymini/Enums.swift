@@ -142,25 +142,84 @@ enum TransactionType: String, Codable, CaseIterable, Identifiable {
 // MARK: - Account Type
 
 enum AccountType: String, Codable, CaseIterable, Identifiable {
-    case normal
-    case nisa_tsumitate
-    case nisa_growth
+    case general = "general"           // 一般账户（普通/特定）
+    case nisa_tsumitate               // つみたて投資枠
+    case nisa_growth                  // 成長投資枠
 
     var id: String { rawValue }
 
     var displayName: String {
         switch self {
-        case .normal:         return "普通账户".localized
-        case .nisa_tsumitate: return "NISA つみたて"
-        case .nisa_growth:    return "NISA 成長"
+        case .general: return "普通账户".localized
+        case .nisa_tsumitate:   return "NISA つみたて枠".localized
+        case .nisa_growth:      return "NISA 成長枠".localized
+        }
+    }
+
+    var shortName: String {
+        switch self {
+        case .general: return "一般".localized
+        case .nisa_tsumitate:   return "つみたて"
+        case .nisa_growth:      return "成長"
         }
     }
 
     var iconName: String {
         switch self {
-        case .normal:         return "building.columns.fill"
-        case .nisa_tsumitate: return "shield.checkered"
-        case .nisa_growth:    return "shield.checkered"
+        case .general: return "building.columns.fill"
+        case .nisa_tsumitate:   return "leaf.fill"
+        case .nisa_growth:      return "chart.line.uptrend.xyaxis"
+        }
+    }
+
+    var isNISA: Bool {
+        switch self {
+        case .general: return false
+        case .nisa_tsumitate, .nisa_growth: return true
+        }
+    }
+
+    /// 该账户类型允许的市场
+    var allowedMarkets: [Market] {
+        switch self {
+        case .general:
+            return Market.allCases
+        case .nisa_tsumitate:
+            return [.JP_FUND]
+        case .nisa_growth:
+            return [.JP, .JP_FUND]
+        }
+    }
+
+    /// 是否需要验证つみたて対象商品
+    var requiresTsumitateEligible: Bool {
+        self == .nisa_tsumitate
+    }
+
+    var annualLimitInManYen: Double? {
+        switch self {
+        case .general: return nil
+        case .nisa_tsumitate:   return 120
+        case .nisa_growth:      return 240
+        }
+    }
+
+    var annualLimit: Double? {
+        guard let manYen = annualLimitInManYen else { return nil }
+        return manYen * 10000
+    }
+
+    static let lifetimeLimitInManYen: Double = 1800
+    static let lifetimeLimit: Double = 1800 * 10000
+
+    static let growthLifetimeLimitInManYen: Double = 1200
+    static let growthLifetimeLimit: Double = 1200 * 10000
+
+    var color: Color {
+        switch self {
+        case .general: return .blue
+        case .nisa_tsumitate:   return Color(red: 0.298, green: 0.686, blue: 0.314)
+        case .nisa_growth:      return Color(red: 0.129, green: 0.588, blue: 0.953)
         }
     }
 }

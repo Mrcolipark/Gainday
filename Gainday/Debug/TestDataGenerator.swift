@@ -54,9 +54,9 @@ struct TestDataGenerator {
     @MainActor
     private static func generateTestPortfolios(modelContext: ModelContext) -> [Portfolio] {
         let portfoliosData: [(name: String, type: String, currency: String, color: String)] = [
-            ("乐天证券", AccountType.normal.rawValue, BaseCurrency.JPY.rawValue, "blue"),
+            ("乐天证券", AccountType.general.rawValue, BaseCurrency.JPY.rawValue, "blue"),
             ("乐天证券 NISA", AccountType.nisa_tsumitate.rawValue, BaseCurrency.JPY.rawValue, "teal"),
-            ("招商证券", AccountType.normal.rawValue, BaseCurrency.CNY.rawValue, "red"),
+            ("招商证券", AccountType.general.rawValue, BaseCurrency.CNY.rawValue, "red"),
         ]
 
         var portfolios: [Portfolio] = []
@@ -189,7 +189,8 @@ struct TestDataGenerator {
                     symbol: fund.symbol,
                     name: fund.name,
                     assetType: AssetType.fund.rawValue,
-                    market: Market.JP_FUND.rawValue
+                    market: Market.JP_FUND.rawValue,
+                    accountType: AccountType.nisa_tsumitate.rawValue  // NISA つみたて枠
                 )
                 holding.portfolio = nisa
                 modelContext.insert(holding)

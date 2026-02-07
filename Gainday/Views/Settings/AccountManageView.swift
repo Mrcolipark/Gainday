@@ -8,11 +8,12 @@ struct AccountManageView: View {
     @Bindable var portfolio: Portfolio
 
     @State private var editedName: String = ""
-    @State private var editedAccountType: AccountType = .normal
+    @State private var editedAccountType: AccountType = .general
     @State private var editedBaseCurrency: BaseCurrency = .JPY
     @State private var editedColorTag: String = "blue"
     @State private var showDeleteConfirmation = false
     @State private var holdingToDelete: Holding?
+    @State private var showDeleteAccountConfirm = false
 
     private let accentColor = AppColors.profit
 
@@ -75,6 +76,14 @@ struct AccountManageView: View {
                 Text("\("确定要删除吗".localized)\n「\(holding.name)」\n\n\("该持仓的所有交易记录都将被永久删除。".localized)")
             }
         }
+        .alert("确认删除".localized, isPresented: $showDeleteAccountConfirm) {
+            Button("取消".localized, role: .cancel) {}
+            Button("删除".localized, role: .destructive) {
+                deleteAccount()
+            }
+        } message: {
+            Text("将永久删除该账户及所有数据".localized + "\n「\(portfolio.name)」")
+        }
     }
 
     // MARK: - 账户信息
@@ -108,32 +117,61 @@ struct AccountManageView: View {
 
                 // 账户类型
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("账户类型".localized)
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(AppColors.textSecondary)
+                    HStack {
+                        Text("账户类型".localized)
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(AppColors.textSecondary)
 
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 10) {
-                            ForEach(AccountType.allCases) { type in
-                                Button {
-                                    editedAccountType = type
-                                } label: {
-                                    HStack(spacing: 8) {
-                                        Image(systemName: type.iconName)
-                                            .font(.system(size: 14))
-                                        Text(type.displayName)
-                                            .font(.system(size: 14, weight: .medium))
+                        if !portfolio.canChangeAccountType {
+                            Text("（有持仓时不可修改）".localized)
+                                .font(.system(size: 11))
+                                .foregroundStyle(AppColors.textTertiary)
+                        }
+                    }
+
+                    if portfolio.canChangeAccountType {
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 10) {
+                                ForEach(AccountType.allCases) { type in
+                                    Button {
+                                        editedAccountType = type
+                                    } label: {
+                                        HStack(spacing: 8) {
+                                            Image(systemName: type.iconName)
+                                                .font(.system(size: 14))
+                                            Text(type.displayName)
+                                                .font(.system(size: 14, weight: .medium))
+                                        }
+                                        .foregroundStyle(editedAccountType == type ? .white : AppColors.textSecondary)
+                                        .padding(.horizontal, 14)
+                                        .padding(.vertical, 10)
+                                        .background(
+                                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                                .fill(editedAccountType == type ? accentColor : AppColors.elevatedSurface)
+                                        )
                                     }
-                                    .foregroundStyle(editedAccountType == type ? .white : AppColors.textSecondary)
-                                    .padding(.horizontal, 14)
-                                    .padding(.vertical, 10)
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                            .fill(editedAccountType == type ? accentColor : AppColors.elevatedSurface)
-                                    )
                                 }
                             }
                         }
+                    } else {
+                        // 有持仓时只显示当前类型，不可编辑
+                        HStack(spacing: 8) {
+                            Image(systemName: editedAccountType.iconName)
+                                .font(.system(size: 14))
+                            Text(editedAccountType.displayName)
+                                .font(.system(size: 14, weight: .medium))
+                        }
+                        .foregroundStyle(editedAccountType.color)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 10)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .fill(editedAccountType.color.opacity(0.15))
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .stroke(editedAccountType.color.opacity(0.3), lineWidth: 1)
+                        )
                     }
                 }
 
@@ -371,7 +409,7 @@ struct AccountManageView: View {
             sectionHeader("危险操作".localized, icon: "exclamationmark.triangle.fill")
 
             Button {
-                deleteAccount()
+                showDeleteAccountConfirm = true
             } label: {
                 HStack(spacing: 12) {
                     ZStack {

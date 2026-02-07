@@ -40,7 +40,28 @@ struct GaindayApp: App {
         do {
             return try ModelContainer(for: schema, configurations: [modelConfiguration])
         } catch {
-            fatalError("Could not create ModelContainer: \(error)")
+            // 如果模式迁移失败，尝试删除旧数据库重新创建
+            print("⚠️ ModelContainer creation failed: \(error)")
+            print("⚠️ Attempting to reset database...")
+
+            // 获取 App Group 目录
+            if let containerURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupIdentifier) {
+                let storeURL = containerURL.appendingPathComponent("default.store")
+                try? FileManager.default.removeItem(at: storeURL)
+
+                // 删除相关的 -wal 和 -shm 文件
+                let walURL = containerURL.appendingPathComponent("default.store-wal")
+                let shmURL = containerURL.appendingPathComponent("default.store-shm")
+                try? FileManager.default.removeItem(at: walURL)
+                try? FileManager.default.removeItem(at: shmURL)
+            }
+
+            // 重新尝试创建
+            do {
+                return try ModelContainer(for: schema, configurations: [modelConfiguration])
+            } catch {
+                fatalError("Could not create ModelContainer after reset: \(error)")
+            }
         }
     }()
 
@@ -52,9 +73,17 @@ struct GaindayApp: App {
                 .withErrorPresenter()
                 .onAppear {
                     appearanceManager.applyAppearance()
+                    // 执行数据迁移
+                    performDataMigrations()
                 }
         }
         .modelContainer(sharedModelContainer)
+    }
+
+    /// 执行数据迁移
+    private func performDataMigrations() {
+        let context = sharedModelContainer.mainContext
+        DataMigrationService.performMigrations(modelContext: context)
     }
 
     private func configureAppearance() {

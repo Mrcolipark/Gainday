@@ -587,7 +587,7 @@ struct AddAccountSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var name = ""
-    @State private var accountType: AccountType = .normal
+    @State private var accountType: AccountType = .general
     @State private var baseCurrency: BaseCurrency = .JPY
     @State private var colorTag = "blue"
 

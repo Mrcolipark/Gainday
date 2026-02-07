@@ -5,12 +5,18 @@ struct HoldingDetailView: View {
     let quote: MarketDataService.QuoteData?
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
     @State private var chartData: [PriceCacheData] = []
     @State private var isLoadingChart = false
     @State private var selectedTimeRange: TimeRange = .threeMonths
     @State private var selectedTab = 0
     @State private var detailedQuote: MarketDataService.QuoteData?
     @State private var isChartInteracting = false
+    @State private var showAddTransaction = false
+    @State private var transactionToDelete: Transaction?
+    @State private var showDeleteConfirm = false
+    @State private var showDeleteHoldingConfirm = false
+    @State private var transactionToEdit: Transaction?
 
     // 使用详细数据（如果可用）或传入的基础数据
     private var displayQuote: MarketDataService.QuoteData? {
@@ -42,8 +48,66 @@ struct HoldingDetailView: View {
     }
 
     private var marketState: MarketState? {
-        guard let stateStr = quote?.marketState else { return nil }
+        guard let stateStr = displayQuote?.marketState ?? quote?.marketState else { return nil }
         return MarketState(rawValue: stateStr)
+    }
+
+    private var isUSStock: Bool {
+        holding.marketEnum == .US
+    }
+
+    /// 确定显示哪种盘前/盘后数据（nil = 不显示）
+    private var extendedHoursType: MarketState? {
+        guard isUSStock else { return nil }
+        switch marketState {
+        case .pre, .prepre:
+            return displayQuote?.preMarketPrice != nil ? .pre : nil
+        case .post, .postpost:
+            return displayQuote?.postMarketPrice != nil ? .post : nil
+        case .closed:
+            if displayQuote?.postMarketPrice != nil { return .post }
+            if displayQuote?.preMarketPrice != nil { return .pre }
+            return nil
+        default:
+            return nil
+        }
+    }
+
+    private var hasExtendedHoursData: Bool {
+        extendedHoursType != nil
+    }
+
+    private var extendedHoursPrice: Double? {
+        switch extendedHoursType {
+        case .pre:
+            return displayQuote?.preMarketPrice
+        case .post:
+            return displayQuote?.postMarketPrice
+        default:
+            return nil
+        }
+    }
+
+    private var extendedHoursChange: Double? {
+        switch extendedHoursType {
+        case .pre:
+            return displayQuote?.preMarketChange
+        case .post:
+            return displayQuote?.postMarketChange
+        default:
+            return nil
+        }
+    }
+
+    private var extendedHoursChangePercent: Double? {
+        switch extendedHoursType {
+        case .pre:
+            return displayQuote?.preMarketChangePercent
+        case .post:
+            return displayQuote?.postMarketChangePercent
+        default:
+            return nil
+        }
     }
 
     var body: some View {
@@ -82,6 +146,49 @@ struct HoldingDetailView: View {
             async let quoteTask: () = loadDetailedQuote()
             async let chartTask: () = loadChartData()
             _ = await (quoteTask, chartTask)
+        }
+        .sheet(isPresented: $showAddTransaction) {
+            if let portfolio = holding.portfolio {
+                AddTransactionView(portfolios: [portfolio], existingHolding: holding)
+            }
+        }
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Menu {
+                    Button(role: .destructive) {
+                        showDeleteHoldingConfirm = true
+                    } label: {
+                        Label("删除标的".localized, systemImage: "trash")
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                        .foregroundStyle(AppColors.textPrimary)
+                }
+            }
+        }
+        .alert("删除交易？".localized, isPresented: $showDeleteConfirm) {
+            Button("取消".localized, role: .cancel) {
+                transactionToDelete = nil
+            }
+            Button("删除".localized, role: .destructive) {
+                if let tx = transactionToDelete {
+                    deleteTransaction(tx)
+                    transactionToDelete = nil
+                }
+            }
+        } message: {
+            Text("此操作无法撤销。".localized)
+        }
+        .alert("删除标的".localized, isPresented: $showDeleteHoldingConfirm) {
+            Button("取消".localized, role: .cancel) {}
+            Button("删除".localized, role: .destructive) {
+                deleteHolding()
+            }
+        } message: {
+            Text("该持仓的所有交易记录都将被永久删除。".localized)
+        }
+        .sheet(item: $transactionToEdit) { tx in
+            EditTransactionView(transaction: tx)
         }
     }
 
@@ -141,6 +248,45 @@ struct HoldingDetailView: View {
                         .background(
                             RoundedRectangle(cornerRadius: 6, style: .continuous)
                                 .fill(isPositive ? AppColors.profit : AppColors.loss)
+                        )
+                }
+            }
+
+            // 盘前/盘后信息
+            if hasExtendedHoursData,
+               let state = extendedHoursType,
+               let extPrice = extendedHoursPrice,
+               let extChange = extendedHoursChange,
+               let extPercent = extendedHoursChangePercent {
+                Divider().background(AppColors.dividerColor)
+
+                HStack(spacing: 8) {
+                    // 状态标签
+                    Text(state.displayName)
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(state.color)
+
+                    // 盘前/盘后价格
+                    Text(extPrice.currencyFormatted(code: holding.currency))
+                        .font(.system(size: 18, weight: .bold, design: .rounded))
+                        .foregroundStyle(AppColors.textPrimary)
+                        .monospacedDigit()
+
+                    Spacer()
+
+                    // 涨跌
+                    Text(extChange.currencyFormatted(code: holding.currency, showSign: true))
+                        .font(.system(size: 13, weight: .medium, design: .monospaced))
+                        .foregroundStyle(extChange >= 0 ? AppColors.profit : AppColors.loss)
+
+                    Text(String(format: "%+.2f%%", extPercent))
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 3)
+                        .background(
+                            RoundedRectangle(cornerRadius: 5, style: .continuous)
+                                .fill(extChange >= 0 ? AppColors.profit : AppColors.loss)
                         )
                 }
             }
@@ -500,7 +646,27 @@ struct HoldingDetailView: View {
     private var transactionsSection: some View {
         let sorted = holding.transactions.sorted { $0.date > $1.date }
 
-        return VStack(spacing: 0) {
+        return VStack(spacing: 12) {
+            // 添加交易按钮
+            Button {
+                showAddTransaction = true
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.system(size: 14))
+                    Text("添加交易".localized)
+                        .font(.system(size: 14, weight: .medium))
+                }
+                .foregroundStyle(AppColors.profit)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+                .background(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .stroke(AppColors.profit.opacity(0.3), lineWidth: 1)
+                )
+            }
+            .buttonStyle(.plain)
+
             if sorted.isEmpty {
                 VStack(spacing: 12) {
                     Image(systemName: "tray")
@@ -517,13 +683,30 @@ struct HoldingDetailView: View {
                         .fill(AppColors.cardSurface)
                 )
             } else {
-                ForEach(Array(sorted.enumerated()), id: \.element.id) { index, tx in
-                    transactionRow(tx)
+                VStack(spacing: 0) {
+                    ForEach(Array(sorted.enumerated()), id: \.element.id) { index, tx in
+                        transactionRow(tx)
+                            .contentShape(Rectangle())
+                            .contextMenu {
+                                Button {
+                                    transactionToEdit = tx
+                                } label: {
+                                    Label("编辑".localized, systemImage: "pencil")
+                                }
 
-                    if index < sorted.count - 1 {
-                        Divider()
-                            .background(AppColors.dividerColor)
-                            .padding(.leading, 56)
+                                Button(role: .destructive) {
+                                    transactionToDelete = tx
+                                    showDeleteConfirm = true
+                                } label: {
+                                    Label("删除".localized, systemImage: "trash")
+                                }
+                            }
+
+                        if index < sorted.count - 1 {
+                            Divider()
+                                .background(AppColors.dividerColor)
+                                .padding(.leading, 56)
+                        }
                     }
                 }
                 .background(
@@ -577,6 +760,35 @@ struct HoldingDetailView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
+    }
+
+    private func deleteTransaction(_ transaction: Transaction) {
+        modelContext.delete(transaction)
+        do {
+            try modelContext.save()
+            NotificationCenter.default.post(name: .portfolioDataDidChange, object: nil)
+        } catch {
+            ErrorPresenter.shared.showError(error)
+        }
+    }
+
+    private func deleteHolding() {
+        // 删除所有交易记录
+        for tx in holding.transactions {
+            modelContext.delete(tx)
+        }
+        // 从 portfolio 中移除
+        if let portfolio = holding.portfolio {
+            portfolio.holdings.removeAll { $0.id == holding.id }
+        }
+        modelContext.delete(holding)
+        do {
+            try modelContext.save()
+            NotificationCenter.default.post(name: .portfolioDataDidChange, object: nil)
+        } catch {
+            ErrorPresenter.shared.showError(error)
+        }
+        dismiss()
     }
 
     // MARK: - 数据加载

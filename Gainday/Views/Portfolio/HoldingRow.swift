@@ -55,48 +55,63 @@ struct HoldingRow: View {
         holding.marketEnum == .US
     }
 
-    private var hasExtendedHoursData: Bool {
-        guard isUSStock else { return false }
+    /// 确定显示哪种盘前/盘后数据（nil = 不显示）
+    private var extendedHoursType: MarketState? {
+        guard isUSStock else { return nil }
         switch marketState {
         case .pre, .prepre:
-            return quote?.preMarketPrice != nil
+            return quote?.preMarketPrice != nil ? .pre : nil
         case .post, .postpost:
-            return quote?.postMarketPrice != nil
+            return quote?.postMarketPrice != nil ? .post : nil
+        case .closed:
+            if quote?.postMarketPrice != nil { return .post }
+            if quote?.preMarketPrice != nil { return .pre }
+            return nil
         default:
-            return false
+            return nil
         }
+    }
+
+    private var hasExtendedHoursData: Bool {
+        extendedHoursType != nil
     }
 
     private var displayPrice: Double {
-        if isUSStock, let state = marketState {
-            switch state {
-            case .pre, .prepre:
-                return quote?.preMarketPrice ?? currentPrice
-            case .post, .postpost:
-                return quote?.postMarketPrice ?? currentPrice
-            default:
-                return currentPrice
-            }
+        switch extendedHoursType {
+        case .pre:
+            return quote?.preMarketPrice ?? currentPrice
+        case .post:
+            return quote?.postMarketPrice ?? currentPrice
+        default:
+            return currentPrice
         }
-        return currentPrice
     }
 
     private var displayChangePercent: Double {
-        if isUSStock, let state = marketState {
-            switch state {
-            case .pre, .prepre:
-                return quote?.preMarketChangePercent ?? dailyChangePercent
-            case .post, .postpost:
-                return quote?.postMarketChangePercent ?? dailyChangePercent
-            default:
-                return dailyChangePercent
-            }
+        switch extendedHoursType {
+        case .pre:
+            return quote?.preMarketChangePercent ?? dailyChangePercent
+        case .post:
+            return quote?.postMarketChangePercent ?? dailyChangePercent
+        default:
+            return dailyChangePercent
         }
-        return dailyChangePercent
     }
 
     private var displayIsPositive: Bool {
         displayChangePercent >= 0
+    }
+
+    /// 盘前/盘后的变动额（相对于收盘价）
+    private var extendedHoursChange: Double? {
+        switch extendedHoursType {
+        case .pre:
+            return quote?.preMarketChange
+        case .post:
+            return quote?.postMarketChange
+        default:
+            return nil
+        }
     }
 
     private var effectivePrice: Double {
@@ -140,42 +155,67 @@ struct HoldingRow: View {
     // MARK: - Basic Mode (iPhone 股票 App 风格)
 
     private var basicMode: some View {
-        HStack(spacing: 8) {
-            // 左侧：股票代码和名称
-            VStack(alignment: .leading, spacing: 2) {
-                Text(displaySymbol)
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(AppColors.textPrimary)
-
-                Text(holding.name)
-                    .font(.system(size: 13))
-                    .foregroundStyle(AppColors.textSecondary)
-                    .lineLimit(1)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-
-            // 右侧：价格和涨跌幅徽章
+        VStack(spacing: 0) {
             HStack(spacing: 8) {
-                // 价格 - 使用紧凑格式避免换行
-                Text(displayPrice > 0 ? displayPrice.compactCurrencyFormatted(code: holding.currency) : "-")
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(AppColors.textPrimary)
-                    .monospacedDigit()
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
+                // 左侧：股票代码和名称
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(displaySymbol)
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(AppColors.textPrimary)
 
-                // 涨跌幅徽章
-                if displayPrice > 0 {
-                    Text(String(format: "%+.2f%%", displayChangePercent))
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .frame(width: 72)
-                        .padding(.vertical, 6)
-                        .background(
-                            RoundedRectangle(cornerRadius: 6, style: .continuous)
-                                .fill(displayIsPositive ? AppColors.profit : AppColors.loss)
-                        )
+                    Text(holding.name)
+                        .font(.system(size: 13))
+                        .foregroundStyle(AppColors.textSecondary)
+                        .lineLimit(1)
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                // 右侧：收盘价和当日涨跌幅
+                HStack(spacing: 8) {
+                    Text(currentPrice > 0 ? currentPrice.compactCurrencyFormatted(code: holding.currency) : "-")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(AppColors.textPrimary)
+                        .monospacedDigit()
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+
+                    if currentPrice > 0 {
+                        Text(String(format: "%+.2f%%", dailyChangePercent))
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(.white)
+                            .frame(width: 72)
+                            .padding(.vertical, 6)
+                            .background(
+                                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                    .fill(isPositive ? AppColors.profit : AppColors.loss)
+                            )
+                    }
+                }
+            }
+
+            // 盘前/盘后额外行
+            if hasExtendedHoursData,
+               let state = extendedHoursType,
+               let extPrice = displayPrice as Double?,
+               let extPercent = displayChangePercent as Double?,
+               extPrice != currentPrice {
+                HStack(spacing: 6) {
+                    Spacer()
+
+                    Text(state.displayName)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(state.color)
+
+                    Text(extPrice.compactCurrencyFormatted(code: holding.currency))
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(AppColors.textSecondary)
+                        .monospacedDigit()
+
+                    Text(String(format: "%+.2f%%", extPercent))
+                        .font(.system(size: 11, weight: .medium, design: .monospaced))
+                        .foregroundStyle(displayIsPositive ? AppColors.profit : AppColors.loss)
+                }
+                .padding(.top, 2)
             }
         }
         .padding(.vertical, 10)
@@ -200,14 +240,13 @@ struct HoldingRow: View {
 
                 Spacer()
 
-                // 价格和涨跌
+                // 收盘价和当日涨跌
                 VStack(alignment: .trailing, spacing: 4) {
                     Text(currentPrice.compactCurrencyFormatted(code: holding.currency))
                         .font(.system(size: 17, weight: .semibold))
                         .foregroundStyle(AppColors.textPrimary)
                         .monospacedDigit()
 
-                    // 涨跌幅徽章
                     Text(String(format: "%+.2f%%", dailyChangePercent))
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(.white)
@@ -217,6 +256,24 @@ struct HoldingRow: View {
                             RoundedRectangle(cornerRadius: 5, style: .continuous)
                                 .fill(isPositive ? AppColors.profit : AppColors.loss)
                         )
+
+                    // 盘前/盘后额外显示
+                    if hasExtendedHoursData,
+                       let state = extendedHoursType,
+                       displayPrice != currentPrice {
+                        HStack(spacing: 4) {
+                            Text(state.displayName)
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundStyle(state.color)
+                            Text(displayPrice.compactCurrencyFormatted(code: holding.currency))
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundStyle(AppColors.textSecondary)
+                                .monospacedDigit()
+                            Text(String(format: "%+.2f%%", displayChangePercent))
+                                .font(.system(size: 11, weight: .medium, design: .monospaced))
+                                .foregroundStyle(displayIsPositive ? AppColors.profit : AppColors.loss)
+                        }
+                    }
                 }
             }
 
@@ -322,6 +379,39 @@ struct HoldingRow: View {
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
                     .fill(AppColors.elevatedSurface)
             )
+
+            // 盘前/盘后额外行
+            if hasExtendedHoursData,
+               let state = extendedHoursType,
+               displayPrice != currentPrice {
+                HStack(spacing: 6) {
+                    Circle()
+                        .fill(state.color)
+                        .frame(width: 6, height: 6)
+
+                    Text(state.displayName)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(state.color)
+
+                    Text(displayPrice.compactCurrencyFormatted(code: holding.currency))
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(AppColors.textPrimary)
+                        .monospacedDigit()
+
+                    if let extChange = extendedHoursChange {
+                        Text(extChange.compactCurrencyFormatted(code: holding.currency, showSign: true))
+                            .font(.system(size: 12, design: .monospaced))
+                            .foregroundStyle(displayIsPositive ? AppColors.profit : AppColors.loss)
+                    }
+
+                    Text(String(format: "(%+.2f%%)", displayChangePercent))
+                        .font(.system(size: 12, weight: .medium, design: .monospaced))
+                        .foregroundStyle(displayIsPositive ? AppColors.profit : AppColors.loss)
+
+                    Spacer()
+                }
+                .padding(.horizontal, 4)
+            }
         }
         .padding(14)
         .background(

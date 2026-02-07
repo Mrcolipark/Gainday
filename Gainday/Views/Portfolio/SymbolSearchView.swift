@@ -4,6 +4,8 @@ import SwiftUI
 struct SymbolSearchView: View {
     @Environment(\.dismiss) private var dismiss
 
+    /// 账户类型（用于过滤市场和商品）
+    let accountType: AccountType?
     let onSelect: (String, String, Market) -> Void
 
     @State private var searchText = ""
@@ -12,6 +14,33 @@ struct SymbolSearchView: View {
     @State private var isSearching = false
     @State private var searchTask: Task<Void, Never>?
     @State private var searchMode: SearchMode = .stocks
+
+    /// 初始化（带账户类型过滤）
+    init(accountType: AccountType? = nil, onSelect: @escaping (String, String, Market) -> Void) {
+        self.accountType = accountType
+        self.onSelect = onSelect
+
+        // つみたて账户默认显示投信搜索
+        if accountType == .nisa_tsumitate {
+            _searchMode = State(initialValue: .funds)
+        }
+    }
+
+    /// 是否只能搜索投信（つみたて账户）
+    private var fundsOnly: Bool {
+        accountType == .nisa_tsumitate
+    }
+
+    /// 是否需要过滤つみたて対象商品
+    private var filterTsumitateEligible: Bool {
+        accountType?.requiresTsumitateEligible ?? false
+    }
+
+    /// 过滤后的基金结果
+    private var filteredFundResults: [JapanFundService.FundSearchResult] {
+        guard filterTsumitateEligible else { return fundResults }
+        return fundResults.filter { $0.isTsumitateEligible }
+    }
 
     enum SearchMode: CaseIterable {
         case stocks
@@ -121,33 +150,55 @@ struct SymbolSearchView: View {
 
     // MARK: - 搜索类型选择
 
+    @ViewBuilder
     private var searchModeSelector: some View {
-        HStack(spacing: 0) {
-            ForEach(SearchMode.allCases, id: \.self) { mode in
-                Button {
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        searchMode = mode
-                        performSearch()
+        if fundsOnly {
+            // つみたて账户只能搜索投信
+            HStack(spacing: 8) {
+                Image(systemName: "leaf.fill")
+                    .font(.system(size: 12))
+                    .foregroundStyle(AccountType.nisa_tsumitate.color)
+
+                Text("つみたてNISA対象商品".localized)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(AppColors.textSecondary)
+
+                Spacer()
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(AccountType.nisa_tsumitate.color.opacity(0.1))
+            )
+        } else {
+            HStack(spacing: 0) {
+                ForEach(SearchMode.allCases, id: \.self) { mode in
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            searchMode = mode
+                            performSearch()
+                        }
+                    } label: {
+                        Text(mode.displayName)
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundStyle(searchMode == mode ? .white : AppColors.textSecondary)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                            .background(
+                                searchMode == mode ?
+                                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                    .fill(AppColors.profit) : nil
+                            )
                     }
-                } label: {
-                    Text(mode.displayName)
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundStyle(searchMode == mode ? .white : AppColors.textSecondary)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
-                        .background(
-                            searchMode == mode ?
-                            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                .fill(AppColors.profit) : nil
-                        )
                 }
             }
+            .padding(4)
+            .background(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(AppColors.cardSurface)
+            )
         }
-        .padding(4)
-        .background(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(AppColors.cardSurface)
-        )
     }
 
     // MARK: - 加载状态
@@ -266,25 +317,45 @@ struct SymbolSearchView: View {
 
     @ViewBuilder
     private var fundResultsList: some View {
-        if fundResults.isEmpty && !searchText.isEmpty {
-            emptyResultsView
+        let displayResults = filteredFundResults
+
+        if displayResults.isEmpty && !searchText.isEmpty {
+            if filterTsumitateEligible && !fundResults.isEmpty {
+                // 有结果但都不是対象商品
+                noEligibleFundsView
+            } else {
+                emptyResultsView
+            }
+        } else if displayResults.isEmpty && searchText.isEmpty && filterTsumitateEligible {
+            // つみたて模式下显示推荐的対象商品
+            tsumitateRecommendedFundsView
         } else {
             VStack(alignment: .leading, spacing: 12) {
                 HStack(spacing: 6) {
-                    Image(systemName: searchText.isEmpty ? "star.fill" : "magnifyingglass")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(searchText.isEmpty ? .orange : AppColors.profit)
+                    if filterTsumitateEligible {
+                        Image(systemName: "leaf.fill")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(AccountType.nisa_tsumitate.color)
 
-                    Text(searchText.isEmpty ? "人气基金".localized : "搜索结果".localized)
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(AppColors.textSecondary)
+                        Text("対象商品".localized)
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(AppColors.textSecondary)
+                    } else {
+                        Image(systemName: searchText.isEmpty ? "star.fill" : "magnifyingglass")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(searchText.isEmpty ? .orange : AppColors.profit)
+
+                        Text(searchText.isEmpty ? "人气基金".localized : "搜索结果".localized)
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(AppColors.textSecondary)
+                    }
                 }
 
                 VStack(spacing: 0) {
-                    ForEach(Array(fundResults.enumerated()), id: \.element.code) { index, fund in
+                    ForEach(Array(displayResults.enumerated()), id: \.element.code) { index, fund in
                         fundResultRow(fund)
 
-                        if index < fundResults.count - 1 {
+                        if index < displayResults.count - 1 {
                             Divider()
                                 .background(AppColors.dividerColor)
                                 .padding(.leading, 52)
@@ -299,6 +370,61 @@ struct SymbolSearchView: View {
         }
     }
 
+    /// 无対象商品结果提示
+    private var noEligibleFundsView: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "leaf")
+                .font(.system(size: 32))
+                .foregroundStyle(AppColors.textTertiary)
+
+            Text("未找到つみたてNISA対象商品".localized)
+                .font(.system(size: 15))
+                .foregroundStyle(AppColors.textSecondary)
+
+            Text("请尝试搜索其他基金代码".localized)
+                .font(.system(size: 13))
+                .foregroundStyle(AppColors.textTertiary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 60)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(AppColors.cardSurface)
+        )
+    }
+
+    /// つみたて推荐商品列表
+    private var tsumitateRecommendedFundsView: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 6) {
+                Image(systemName: "leaf.fill")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(AccountType.nisa_tsumitate.color)
+
+                Text("推荐対象商品".localized)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(AppColors.textSecondary)
+            }
+
+            VStack(spacing: 0) {
+                let eligiblePopular = JapanFundService.popularFunds.filter { $0.isTsumitateEligible }
+                ForEach(Array(eligiblePopular.enumerated()), id: \.element.code) { index, fund in
+                    fundResultRow(fund)
+
+                    if index < eligiblePopular.count - 1 {
+                        Divider()
+                            .background(AppColors.dividerColor)
+                            .padding(.leading, 52)
+                    }
+                }
+            }
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(AppColors.cardSurface)
+            )
+        }
+    }
+
     private func fundResultRow(_ fund: JapanFundService.FundSearchResult) -> some View {
         Button {
             onSelect(fund.code, fund.name, .JP_FUND)
@@ -308,12 +434,18 @@ struct SymbolSearchView: View {
                 // 基金图标
                 ZStack {
                     Circle()
-                        .fill(Color.purple.opacity(0.15))
+                        .fill(fund.isTsumitateEligible ? AccountType.nisa_tsumitate.color.opacity(0.15) : Color.purple.opacity(0.15))
                         .frame(width: 36, height: 36)
 
-                    Image(systemName: "chart.pie.fill")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(.purple)
+                    if fund.isTsumitateEligible {
+                        Image(systemName: "leaf.fill")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(AccountType.nisa_tsumitate.color)
+                    } else {
+                        Image(systemName: "chart.pie.fill")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(.purple)
+                    }
                 }
 
                 // 信息
@@ -322,6 +454,18 @@ struct SymbolSearchView: View {
                         Text(fund.code)
                             .font(.system(size: 15, weight: .semibold, design: .monospaced))
                             .foregroundStyle(AppColors.textPrimary)
+
+                        if fund.isTsumitateEligible {
+                            Text("対象".localized)
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(
+                                    Capsule()
+                                        .fill(AccountType.nisa_tsumitate.color)
+                                )
+                        }
 
                         if let category = fund.category {
                             Text(category)
@@ -488,7 +632,12 @@ private extension Market {
     }
 }
 
-#Preview {
-    SymbolSearchView { _, _, _ in }
+#Preview("General Account") {
+    SymbolSearchView(accountType: .general) { _, _, _ in }
+        .preferredColorScheme(.dark)
+}
+
+#Preview("Tsumitate Account") {
+    SymbolSearchView(accountType: .nisa_tsumitate) { _, _, _ in }
         .preferredColorScheme(.dark)
 }

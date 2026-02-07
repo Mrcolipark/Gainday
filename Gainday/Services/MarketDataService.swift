@@ -330,6 +330,13 @@ actor MarketDataService {
                     postMarketChange = latestPrice - regularMarketPrice
                     postMarketChangePercent = (postMarketChange! / regularMarketPrice) * 100
                 }
+            } else if marketState == "CLOSED" {
+                // 休市时（周末/假日），图表最新价可能是上一交易日的盘后价
+                if latestPrice != regularMarketPrice && regularMarketPrice > 0 {
+                    postMarketPrice = latestPrice
+                    postMarketChange = latestPrice - regularMarketPrice
+                    postMarketChangePercent = (postMarketChange! / regularMarketPrice) * 100
+                }
             }
         }
 
@@ -411,6 +418,12 @@ actor MarketDataService {
         let marketCap: RawValue?
         let currency: String?
         let marketState: String?
+        let preMarketPrice: RawValue?
+        let preMarketChange: RawValue?
+        let preMarketChangePercent: RawValue?
+        let postMarketPrice: RawValue?
+        let postMarketChange: RawValue?
+        let postMarketChangePercent: RawValue?
     }
 
     struct SummaryDetailModule: Codable {
@@ -487,12 +500,12 @@ actor MarketDataService {
             regularMarketPreviousClose: previousClose,
             currency: price?.currency,
             marketState: price?.marketState,
-            preMarketPrice: nil,
-            preMarketChange: nil,
-            preMarketChangePercent: nil,
-            postMarketPrice: nil,
-            postMarketChange: nil,
-            postMarketChangePercent: nil,
+            preMarketPrice: price?.preMarketPrice?.raw,
+            preMarketChange: price?.preMarketChange?.raw,
+            preMarketChangePercent: price?.preMarketChangePercent?.raw.map { $0 * 100 },
+            postMarketPrice: price?.postMarketPrice?.raw,
+            postMarketChange: price?.postMarketChange?.raw,
+            postMarketChangePercent: price?.postMarketChangePercent?.raw.map { $0 * 100 },
             regularMarketOpen: price?.regularMarketOpen?.raw,
             regularMarketDayHigh: price?.regularMarketDayHigh?.raw,
             regularMarketDayLow: price?.regularMarketDayLow?.raw,

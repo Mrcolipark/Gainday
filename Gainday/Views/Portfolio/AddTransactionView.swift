@@ -7,6 +7,7 @@ struct AddTransactionView: View {
     @Environment(\.dismiss) private var dismiss
 
     let portfolios: [Portfolio]
+    var existingHolding: Holding? = nil
 
     @State private var selectedPortfolio: Portfolio?
     @State private var transactionType: TransactionType = .buy
@@ -19,9 +20,62 @@ struct AddTransactionView: View {
     @State private var date = Date()
     @State private var note = ""
     @State private var selectedMarket: Market = .JP
-    @State private var selectedAssetType: AssetType = .stock
     @State private var showSymbolSearch = false
     @State private var isLoadingNAV = false
+
+    /// 当前选中账户的账户类型
+    private var currentAccountType: AccountType {
+        selectedPortfolio?.accountTypeEnum ?? .general
+    }
+
+    /// 当前账户允许的市场
+    private var allowedMarkets: [Market] {
+        currentAccountType.allowedMarkets
+    }
+
+    /// 是否需要验证つみたて対象商品
+    private var requiresTsumitateEligible: Bool {
+        currentAccountType.requiresTsumitateEligible
+    }
+
+    /// 计算 NISA 额度
+    private var nisaQuota: NISAOverallQuota {
+        NISAQuotaCalculator.calculateOverall(holdings: portfolios.flatMap(\.holdings))
+    }
+
+    /// 当前交易金额
+    private var currentTransactionAmount: Double {
+        if isMutualFund && investmentMode == .fixedAmount {
+            return Double(investmentAmount) ?? 0
+        } else {
+            let qty = Double(quantity) ?? 0
+            let prc = Double(price) ?? 0
+            let feeAmount = Double(fee) ?? 0
+            return qty * prc + feeAmount
+        }
+    }
+
+    /// NISA 额度验证警告
+    private var nisaQuotaWarning: String? {
+        guard currentAccountType.isNISA, transactionType == .buy else { return nil }
+
+        let amount = currentTransactionAmount
+        guard amount > 0 else { return nil }
+
+        switch currentAccountType {
+        case .nisa_tsumitate:
+            if amount > nisaQuota.tsumitateAnnualRemaining {
+                return "超出つみたて枠年度剩余额度".localized + " (\(formatManYen(nisaQuota.tsumitateAnnualRemaining)))"
+            }
+        case .nisa_growth:
+            if amount > nisaQuota.growthAnnualRemaining {
+                return "超出成長枠年度剩余额度".localized + " (\(formatManYen(nisaQuota.growthAnnualRemaining)))"
+            }
+        default:
+            break
+        }
+        return nil
+    }
 
     enum InvestmentMode: String, CaseIterable {
         case fixedAmount = "定额"
@@ -37,18 +91,35 @@ struct AddTransactionView: View {
         selectedMarket == .JP_FUND
     }
 
+    /// 是否针对已有标的添加交易（跳过标的选择）
+    private var isExistingHoldingMode: Bool {
+        existingHolding != nil
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 24) {
-                    // 账户选择
-                    accountSection
+                    if isExistingHoldingMode {
+                        // 已有标的模式：显示标的信息（只读）
+                        existingHoldingBanner
+                    } else {
+                        // 账户选择
+                        accountSection
+
+                        // 账户类型提示（仅显示，不可选择）
+                        if currentAccountType.isNISA {
+                            accountTypeInfoBanner
+                        }
+                    }
 
                     // 交易类型
                     transactionTypeSection
 
-                    // 标的信息
-                    symbolSection
+                    // 标的信息（仅新建模式）
+                    if !isExistingHoldingMode {
+                        symbolSection
+                    }
 
                     // 交易详情
                     if isMutualFund {
@@ -63,6 +134,11 @@ struct AddTransactionView: View {
                     // 验证提示
                     if let message = validationMessage {
                         validationBanner(message)
+                    }
+
+                    // NISA 额度警告
+                    if let warning = nisaQuotaWarning {
+                        nisaQuotaWarningBanner(warning)
                     }
 
                     Spacer(minLength: 100)
@@ -84,7 +160,7 @@ struct AddTransactionView: View {
                 }
             }
             .sheet(isPresented: $showSymbolSearch) {
-                SymbolSearchView { symbol, name, market in
+                SymbolSearchView(accountType: currentAccountType) { symbol, name, market in
                     symbolText = symbol
                     holdingName = name
                     selectedMarket = market
@@ -96,14 +172,44 @@ struct AddTransactionView: View {
             .onChange(of: selectedMarket) { _, newMarket in
                 if newMarket == .JP_FUND {
                     investmentMode = .fixedAmount
-                    selectedAssetType = .fund
                 } else {
                     investmentMode = .fixedQuantity
                 }
             }
             .onAppear {
-                if selectedPortfolio == nil {
-                    selectedPortfolio = portfolios.first
+                if let holding = existingHolding {
+                    // 已有标的模式：预填充信息
+                    symbolText = holding.symbol
+                    holdingName = holding.name
+                    selectedMarket = holding.marketEnum
+                    selectedPortfolio = holding.portfolio
+                } else {
+                    if selectedPortfolio == nil {
+                        selectedPortfolio = portfolios.first
+                    }
+                    // 根据账户类型设置默认市场
+                    if let portfolio = selectedPortfolio {
+                        let allowed = portfolio.accountTypeEnum.allowedMarkets
+                        if !allowed.contains(selectedMarket) {
+                            selectedMarket = allowed.first ?? .JP
+                        }
+                    }
+                }
+            }
+            .onChange(of: selectedPortfolio) { _, newPortfolio in
+                // 切换账户时更新默认市场
+                if let portfolio = newPortfolio {
+                    let allowed = portfolio.accountTypeEnum.allowedMarkets
+                    if !allowed.contains(selectedMarket) {
+                        selectedMarket = allowed.first ?? .JP
+                        // 清空标的信息
+                        symbolText = ""
+                        holdingName = ""
+                    }
+                    // つみたて枠只能买入，重置交易类型
+                    if portfolio.accountTypeEnum == .nisa_tsumitate {
+                        transactionType = .buy
+                    }
                 }
             }
         }
@@ -142,14 +248,136 @@ struct AddTransactionView: View {
         }
     }
 
+    // MARK: - 账户类型信息提示
+
+    private var accountTypeInfoBanner: some View {
+        HStack(spacing: 12) {
+            // 图标
+            Image(systemName: currentAccountType.iconName)
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(currentAccountType.color)
+                .frame(width: 32, height: 32)
+                .background(
+                    Circle()
+                        .fill(currentAccountType.color.opacity(0.15))
+                )
+
+            // 信息
+            VStack(alignment: .leading, spacing: 4) {
+                Text(currentAccountType.displayName)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(AppColors.textPrimary)
+
+                HStack(spacing: 8) {
+                    if currentAccountType == .nisa_tsumitate {
+                        Text("剩余额度".localized + ": " + formatManYen(nisaQuota.tsumitateAnnualRemaining))
+                            .font(.system(size: 12))
+                            .foregroundStyle(AppColors.textSecondary)
+
+                        Text("·")
+                            .foregroundStyle(AppColors.textTertiary)
+
+                        Text("只能买入対象商品".localized)
+                            .font(.system(size: 12))
+                            .foregroundStyle(.orange)
+                    } else if currentAccountType == .nisa_growth {
+                        Text("剩余额度".localized + ": " + formatManYen(nisaQuota.growthAnnualRemaining))
+                            .font(.system(size: 12))
+                            .foregroundStyle(AppColors.textSecondary)
+                    }
+                }
+            }
+
+            Spacer()
+        }
+        .padding(14)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(currentAccountType.color.opacity(0.1))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(currentAccountType.color.opacity(0.3), lineWidth: 1)
+        )
+    }
+
+    /// NISA 额度警告横幅
+    private func nisaQuotaWarningBanner(_ message: String) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 16))
+                .foregroundStyle(.yellow)
+            Text(message)
+                .font(.system(size: 14))
+                .foregroundStyle(AppColors.textPrimary)
+            Spacer()
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(.yellow.opacity(0.15))
+        )
+    }
+
+    private func formatManYen(_ value: Double) -> String {
+        let manYen = value / 10000
+        if manYen >= 100 {
+            return String(format: "¥%.0f万", manYen)
+        } else if manYen >= 1 {
+            return String(format: "¥%.1f万", manYen)
+        } else {
+            return String(format: "¥%.0f", value)
+        }
+    }
+
+    // MARK: - 已有标的信息（只读）
+
+    private var existingHoldingBanner: some View {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(symbolText)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(AppColors.textPrimary)
+                Text(holdingName)
+                    .font(.system(size: 13))
+                    .foregroundStyle(AppColors.textSecondary)
+                    .lineLimit(1)
+            }
+            Spacer()
+            if let portfolio = selectedPortfolio {
+                HStack(spacing: 6) {
+                    Circle()
+                        .fill(portfolio.tagColor)
+                        .frame(width: 8, height: 8)
+                    Text(portfolio.name)
+                        .font(.system(size: 13))
+                        .foregroundStyle(AppColors.textSecondary)
+                }
+            }
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(AppColors.cardSurface)
+        )
+    }
+
     // MARK: - 交易类型
+
+    /// 当前账户允许的交易类型（つみたて枠只能买入）
+    private var availableTransactionTypes: [TransactionType] {
+        if currentAccountType == .nisa_tsumitate {
+            return [.buy]
+        }
+        return TransactionType.allCases.map { $0 }
+    }
 
     private var transactionTypeSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             sectionTitle("交易类型".localized)
 
             HStack(spacing: 0) {
-                ForEach(TransactionType.allCases) { type in
+                ForEach(availableTransactionTypes) { type in
                     Button {
                         transactionType = type
                     } label: {
@@ -192,27 +420,46 @@ struct AddTransactionView: View {
             sectionTitle("标的信息".localized)
 
             VStack(spacing: 16) {
-                // 代码输入
-                HStack(spacing: 12) {
-                    FormField(
-                        label: "代码".localized,
-                        placeholder: isMutualFund ? "如 0331418A".localized : "如 7203.T".localized,
-                        text: $symbolText,
-                        keyboardType: .default,
-                        capitalization: true
-                    )
+                // 代码输入 - label 单独一行，input + 搜索按钮同行对齐
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("代码".localized)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(AppColors.textSecondary)
 
-                    Button {
-                        showSymbolSearch = true
-                    } label: {
-                        Image(systemName: "magnifyingglass")
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundStyle(.white)
-                            .frame(width: 48, height: 48)
-                            .background(
-                                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                    .fill(AppColors.profit)
+                    HStack(spacing: 12) {
+                        HStack(spacing: 8) {
+                            TextField(
+                                "",
+                                text: $symbolText,
+                                prompt: Text(isMutualFund ? "如 0331418A".localized : "如 7203.T".localized)
+                                    .foregroundStyle(AppColors.textTertiary)
                             )
+                            .font(.system(size: 16))
+                            .foregroundStyle(AppColors.textPrimary)
+                            #if os(iOS)
+                            .keyboardType(.default)
+                            .textInputAutocapitalization(.characters)
+                            #endif
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 12)
+                        .background(
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .fill(AppColors.elevatedSurface)
+                        )
+
+                        Button {
+                            showSymbolSearch = true
+                        } label: {
+                            Image(systemName: "magnifyingglass")
+                                .font(.system(size: 16, weight: .medium))
+                                .foregroundStyle(.white)
+                                .frame(width: 48, height: 48)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                        .fill(AppColors.profit)
+                                )
+                        }
                     }
                 }
 
@@ -222,64 +469,6 @@ struct AddTransactionView: View {
                     placeholder: "标的名称".localized,
                     text: $holdingName
                 )
-
-                // 市场选择
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("市场".localized)
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(AppColors.textSecondary)
-
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 8) {
-                            ForEach(Market.allCases) { market in
-                                Button {
-                                    selectedMarket = market
-                                } label: {
-                                    Text("\(market.flag) \(market.displayName)")
-                                        .font(.system(size: 14, weight: .medium))
-                                        .foregroundStyle(selectedMarket == market ? .white : AppColors.textSecondary)
-                                        .padding(.horizontal, 14)
-                                        .padding(.vertical, 10)
-                                        .background(
-                                            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                                .fill(selectedMarket == market ? AppColors.profit : AppColors.elevatedSurface)
-                                        )
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // 资产类型（非投信）
-                if !isMutualFund {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("资产类型".localized)
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundStyle(AppColors.textSecondary)
-
-                        HStack(spacing: 8) {
-                            ForEach(AssetType.allCases) { type in
-                                Button {
-                                    selectedAssetType = type
-                                } label: {
-                                    HStack(spacing: 6) {
-                                        Image(systemName: type.iconName)
-                                            .font(.system(size: 14))
-                                        Text(type.displayName)
-                                            .font(.system(size: 14, weight: .medium))
-                                    }
-                                    .foregroundStyle(selectedAssetType == type ? .white : AppColors.textSecondary)
-                                    .padding(.horizontal, 14)
-                                    .padding(.vertical, 10)
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                            .fill(selectedAssetType == type ? AppColors.profit : AppColors.elevatedSurface)
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
             }
             .padding(16)
             .background(
@@ -602,6 +791,10 @@ struct AddTransactionView: View {
         if date > Date() {
             return "交易日期不能是未来日期".localized
         }
+        // つみたて対象商品验证
+        if let error = tsumitateValidationError {
+            return error
+        }
         if isMutualFund && investmentMode == .fixedAmount {
             if let amount = Double(investmentAmount) {
                 if amount < 100 { return "投资金额至少100円".localized }
@@ -636,10 +829,62 @@ struct AddTransactionView: View {
         }
     }
 
+    // MARK: - Validation
+
+    /// つみたて対象商品验证
+    private var tsumitateValidationError: String? {
+        guard requiresTsumitateEligible,
+              isMutualFund,
+              !symbolText.isEmpty else { return nil }
+
+        if !TsumitateEligibleFundsService.knownEligibleFunds.contains(symbolText.uppercased()) {
+            return "该商品不是つみたてNISA対象商品".localized
+        }
+        return nil
+    }
+
+    // MARK: - Market & Asset Type Detection
+
+    /// 从 symbol 后缀自动推断市场，如果已通过搜索设置则使用 selectedMarket
+    private func detectMarket(_ symbol: String) -> Market {
+        let upper = symbol.uppercased()
+        if upper.hasSuffix(".T") || upper.hasSuffix(".JP") {
+            return .JP
+        } else if upper.hasSuffix(".SS") || upper.hasSuffix(".SZ") {
+            return .CN
+        } else if upper.hasSuffix(".HK") {
+            return .HK
+        } else if upper.contains("-USD") || upper.contains("USDT") {
+            return .CRYPTO
+        }
+        // 纯数字且长度符合日本投信代码特征
+        let digits = upper.replacingOccurrences(of: "[^0-9A-Z]", with: "", options: .regularExpression)
+        if digits.count >= 7 && selectedMarket == .JP_FUND {
+            return .JP_FUND
+        }
+        return selectedMarket
+    }
+
+    /// 从市场自动推断资产类型
+    private func inferAssetType(from market: Market) -> AssetType {
+        switch market {
+        case .JP_FUND: return .fund
+        case .CRYPTO: return .crypto
+        case .COMMODITY: return .metal
+        default: return .stock
+        }
+    }
+
     // MARK: - Save
 
     private func saveTransaction() {
         guard let portfolio = selectedPortfolio else { return }
+
+        // 验证つみたて対象商品
+        if let error = tsumitateValidationError {
+            // 显示错误（通过 validationMessage）
+            return
+        }
 
         let finalQuantity: Double
         let finalPrice: Double
@@ -657,15 +902,22 @@ struct AddTransactionView: View {
             finalPrice = prc
         }
 
+        // 手动输入时通过 symbol 后缀自动推断市场
+        let finalMarket = detectMarket(symbolText)
+        let finalAssetType = inferAssetType(from: finalMarket)
+
         let holding: Holding
+        // 查找是否已有该标的（同一 portfolio 内）
         if let existing = portfolio.holdings.first(where: { $0.symbol == symbolText }) {
             holding = existing
         } else {
+            // 创建新持仓 - accountType 从 portfolio 继承
             holding = Holding(
                 symbol: symbolText,
                 name: holdingName,
-                assetType: isMutualFund ? AssetType.fund.rawValue : selectedAssetType.rawValue,
-                market: selectedMarket.rawValue
+                assetType: finalAssetType.rawValue,
+                market: finalMarket.rawValue,
+                accountType: portfolio.accountType  // 使用 portfolio 的账户类型
             )
             holding.portfolio = portfolio
             portfolio.holdings.append(holding)
@@ -677,7 +929,7 @@ struct AddTransactionView: View {
             quantity: finalQuantity,
             price: finalPrice,
             fee: feeAmount,
-            currency: selectedMarket.currency,
+            currency: finalMarket.currency,
             note: note
         )
         transaction.holding = holding
@@ -698,7 +950,7 @@ struct AddTransactionView: View {
 
 // MARK: - 表单输入组件
 
-private struct FormField: View {
+struct FormField: View {
     let label: String
     let placeholder: String
     @Binding var text: String

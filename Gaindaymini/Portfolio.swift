@@ -17,7 +17,7 @@ class Portfolio {
     init(
         id: UUID = UUID(),
         name: String,
-        accountType: String = AccountType.normal.rawValue,
+        accountType: String = AccountType.general.rawValue,
         baseCurrency: String = BaseCurrency.JPY.rawValue,
         sortOrder: Int = 0,
         colorTag: String = "blue",
@@ -35,7 +35,16 @@ class Portfolio {
     }
 
     var accountTypeEnum: AccountType {
-        AccountType(rawValue: accountType) ?? .normal
+        // 处理旧数据中的 "normal" 值
+        if accountType == "normal" {
+            return .general
+        }
+        return AccountType(rawValue: accountType) ?? .general
+    }
+
+    /// 是否为 NISA 账户
+    var isNISA: Bool {
+        accountTypeEnum.isNISA
     }
 
     var baseCurrencyEnum: BaseCurrency {

@@ -145,7 +145,7 @@ struct CSVImportService {
                     // 创建新 Portfolio
                     portfolio = Portfolio(
                         name: accountName,
-                        accountType: AccountType.normal.rawValue,
+                        accountType: AccountType.general.rawValue,
                         baseCurrency: currency,
                         colorTag: "blue"
                     )

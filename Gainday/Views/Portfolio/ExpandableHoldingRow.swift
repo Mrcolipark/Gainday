@@ -7,17 +7,17 @@ struct ExpandableHoldingRow: View {
     let holding: Holding
     let quote: MarketDataService.QuoteData?
     let showPercent: Bool
+    var scrollProxy: ScrollViewProxy?
 
     @State private var isExpanded = false
-    @State private var selectedTab: ExpandedTab = .transactions
     @State private var showDeleteConfirm = false
     @State private var transactionToDelete: Transaction?
     @State private var transactionToEdit: Transaction?
+    @State private var showAddTransaction = false
 
-    enum ExpandedTab {
-        case transactions
-        case addNew
-        case edit
+    /// 用于滚动定位的 ID
+    private var rowId: String {
+        "holding-\(holding.id.uuidString)"
     }
 
     // MARK: - 计算属性
@@ -42,17 +42,14 @@ struct ExpandableHoldingRow: View {
     }
 
     private var effectivePrice: Double {
-        if let state = quote?.marketState {
-            switch MarketState(rawValue: state) {
-            case .pre, .prepre:
-                return quote?.preMarketPrice ?? currentPrice
-            case .post, .postpost:
-                return quote?.postMarketPrice ?? currentPrice
-            default:
-                return currentPrice
-            }
+        switch extendedHoursType {
+        case .pre:
+            return quote?.preMarketPrice ?? currentPrice
+        case .post:
+            return quote?.postMarketPrice ?? currentPrice
+        default:
+            return currentPrice
         }
-        return currentPrice
     }
 
     private var marketValue: Double {
@@ -85,23 +82,32 @@ struct ExpandableHoldingRow: View {
         holding.marketEnum == .US
     }
 
-    private var hasExtendedHoursData: Bool {
-        guard isUSStock else { return false }
+    /// 确定显示哪种盘前/盘后数据（nil = 不显示）
+    private var extendedHoursType: MarketState? {
+        guard isUSStock else { return nil }
         switch marketState {
         case .pre, .prepre:
-            return quote?.preMarketPrice != nil
+            return quote?.preMarketPrice != nil ? .pre : nil
         case .post, .postpost:
-            return quote?.postMarketPrice != nil
+            return quote?.postMarketPrice != nil ? .post : nil
+        case .closed:
+            if quote?.postMarketPrice != nil { return .post }
+            if quote?.preMarketPrice != nil { return .pre }
+            return nil
         default:
-            return false
+            return nil
         }
     }
 
+    private var hasExtendedHoursData: Bool {
+        extendedHoursType != nil
+    }
+
     private var extendedHoursPrice: Double? {
-        switch marketState {
-        case .pre, .prepre:
+        switch extendedHoursType {
+        case .pre:
             return quote?.preMarketPrice
-        case .post, .postpost:
+        case .post:
             return quote?.postMarketPrice
         default:
             return nil
@@ -109,10 +115,10 @@ struct ExpandableHoldingRow: View {
     }
 
     private var extendedHoursChangePercent: Double? {
-        switch marketState {
-        case .pre, .prepre:
+        switch extendedHoursType {
+        case .pre:
             return quote?.preMarketChangePercent
-        case .post, .postpost:
+        case .post:
             return quote?.postMarketChangePercent
         default:
             return nil
@@ -127,6 +133,14 @@ struct ExpandableHoldingRow: View {
                     withAnimation(AppAnimations.expandCollapse) {
                         isExpanded.toggle()
                     }
+                    // 展开时滚动到该行，确保展开内容可见
+                    if isExpanded {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                            withAnimation {
+                                scrollProxy?.scrollTo(rowId, anchor: .top)
+                            }
+                        }
+                    }
                 }
 
             if isExpanded {
@@ -134,6 +148,7 @@ struct ExpandableHoldingRow: View {
                     .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
+        .id(rowId)
         .liquidGlass(cornerRadius: 16)
         .alert("删除交易？".localized, isPresented: $showDeleteConfirm) {
             Button("取消".localized, role: .cancel) {}
@@ -144,6 +159,14 @@ struct ExpandableHoldingRow: View {
             }
         } message: {
             Text("此操作无法撤销。".localized)
+        }
+        .sheet(item: $transactionToEdit) { tx in
+            EditTransactionView(transaction: tx)
+        }
+        .sheet(isPresented: $showAddTransaction) {
+            if let portfolio = holding.portfolio {
+                AddTransactionView(portfolios: [portfolio], existingHolding: holding)
+            }
         }
     }
 
@@ -182,7 +205,7 @@ struct ExpandableHoldingRow: View {
                 .foregroundStyle(isPositive ? AppColors.profit : AppColors.loss)
 
                 if hasExtendedHoursData, let extPrice = extendedHoursPrice,
-                   let extPercent = extendedHoursChangePercent, let state = marketState {
+                   let extPercent = extendedHoursChangePercent, let state = extendedHoursType {
                     HStack(spacing: 4) {
                         Text(state.displayName)
                             .font(.system(size: 9, weight: .medium))
@@ -213,67 +236,27 @@ struct ExpandableHoldingRow: View {
                 .frame(height: 1)
                 .padding(.horizontal, 16)
 
-            HStack(spacing: 8) {
-                tabButton(title: "交易记录".localized, tab: .transactions)
-                tabButton(title: "添加".localized, tab: .addNew)
-                Spacer()
-            }
-            .padding(.horizontal, 16)
-            .padding(.top, 12)
-
-            Group {
-                switch selectedTab {
-                case .transactions:
-                    transactionsList
-                case .addNew:
-                    InlineAddTransactionForm(
-                        holding: holding,
-                        editingTransaction: nil,
-                        onSave: {
-                            withAnimation {
-                                selectedTab = .transactions
-                            }
-                        }
-                    )
-                case .edit:
-                    if let tx = transactionToEdit {
-                        InlineAddTransactionForm(
-                            holding: holding,
-                            editingTransaction: tx,
-                            onSave: {
-                                withAnimation {
-                                    transactionToEdit = nil
-                                    selectedTab = .transactions
-                                }
-                            }
-                        )
-                    }
+            // 添加交易按钮
+            Button {
+                showAddTransaction = true
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.system(size: 13))
+                    Text("添加交易".localized)
+                        .font(.system(size: 13, weight: .medium))
                 }
+                .foregroundStyle(AppColors.profit)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 10)
             }
+            .buttonStyle(.plain)
             .padding(.horizontal, 16)
-            .padding(.bottom, 14)
-        }
-    }
 
-    private func tabButton(title: String, tab: ExpandedTab) -> some View {
-        Button {
-            withAnimation(.easeInOut(duration: 0.2)) {
-                selectedTab = tab
-            }
-        } label: {
-            Text(title)
-                .font(.system(size: 13, weight: selectedTab == tab ? .semibold : .regular))
-                .foregroundStyle(selectedTab == tab ? AppColors.textPrimary : AppColors.textSecondary)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
-                .background {
-                    if selectedTab == tab {
-                        Capsule()
-                            .fill(AppColors.elevatedSurface)
-                    }
-                }
+            transactionsList
+                .padding(.horizontal, 16)
+                .padding(.bottom, 14)
         }
-        .buttonStyle(.plain)
     }
 
     // MARK: - 交易记录列表
@@ -292,12 +275,18 @@ struct ExpandableHoldingRow: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 24)
             } else {
-                List {
+                // 使用 VStack 替代 List，避免嵌套滚动问题
+                VStack(spacing: 0) {
                     ForEach(sortedTransactions) { transaction in
                         TransactionRow(transaction: transaction)
-                            .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
-                            .listRowBackground(Color.clear)
-                            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                            .contentShape(Rectangle())
+                            .contextMenu {
+                                Button {
+                                    transactionToEdit = transaction
+                                } label: {
+                                    Label("编辑".localized, systemImage: "pencil")
+                                }
+
                                 Button(role: .destructive) {
                                     transactionToDelete = transaction
                                     showDeleteConfirm = true
@@ -305,22 +294,15 @@ struct ExpandableHoldingRow: View {
                                     Label("删除".localized, systemImage: "trash")
                                 }
                             }
-                            .swipeActions(edge: .leading, allowsFullSwipe: true) {
-                                Button {
-                                    transactionToEdit = transaction
-                                    withAnimation {
-                                        selectedTab = .edit
-                                    }
-                                } label: {
-                                    Label("编辑".localized, systemImage: "pencil")
-                                }
-                                .tint(.blue)
-                            }
+
+                        if transaction.id != sortedTransactions.last?.id {
+                            Rectangle()
+                                .fill(AppColors.dividerColor)
+                                .frame(height: 1)
+                                .padding(.leading, 44)
+                        }
                     }
                 }
-                .listStyle(.plain)
-                .scrollDisabled(true)
-                .frame(minHeight: CGFloat(sortedTransactions.count) * 56)
             }
         }
         .padding(.top, 8)
@@ -385,287 +367,6 @@ struct TransactionRow: View {
     }
 }
 
-// MARK: - 内联添加交易表单
-
-struct InlineAddTransactionForm: View {
-    @Environment(\.modelContext) private var modelContext
-    let holding: Holding
-    let editingTransaction: Transaction?
-    var onSave: (() -> Void)?
-
-    @State private var transactionType: TransactionType = .buy
-    @State private var date = Date()
-    @State private var quantity = ""
-    @State private var price = ""
-    @State private var fee = ""
-    @State private var isLoadingPrice = false
-    @State private var showError = false
-    @State private var errorMessage = ""
-
-    private var isEditMode: Bool {
-        editingTransaction != nil
-    }
-
-    var body: some View {
-        VStack(spacing: 16) {
-            if isEditMode {
-                HStack {
-                    Text("编辑交易".localized)
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(AppColors.accent)
-                    Spacer()
-                }
-            }
-
-            // 类型选择器
-            HStack(spacing: 8) {
-                ForEach([TransactionType.buy, .sell, .dividend], id: \.self) { type in
-                    Button {
-                        transactionType = type
-                    } label: {
-                        Text(type.displayName)
-                            .font(.system(size: 13, weight: transactionType == type ? .semibold : .regular))
-                            .foregroundStyle(transactionType == type ? type.color : AppColors.textSecondary)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 8)
-                            .background {
-                                if transactionType == type {
-                                    Capsule()
-                                        .fill(type.color.opacity(0.12))
-                                }
-                            }
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-
-            // 表单字段
-            VStack(spacing: 12) {
-                formRow(label: "日期".localized) {
-                    DatePicker("", selection: $date, displayedComponents: .date)
-                        .labelsHidden()
-                        .datePickerStyle(.compact)
-                        .onChange(of: date) { _, _ in
-                            fetchPriceForDate()
-                        }
-                }
-
-                formRow(label: "数量".localized) {
-                    TextField(
-                        "",
-                        text: $quantity,
-                        prompt: Text("0").foregroundStyle(AppColors.textTertiary)
-                    )
-                    .keyboardType(.decimalPad)
-                    .multilineTextAlignment(.trailing)
-                    .font(.system(size: 15, design: .monospaced))
-                    .foregroundStyle(AppColors.textPrimary)
-                }
-
-                formRow(label: "价格".localized) {
-                    HStack {
-                        if isLoadingPrice {
-                            ProgressView()
-                                .scaleEffect(0.7)
-                        }
-                        TextField(
-                            "",
-                            text: $price,
-                            prompt: Text("0.00").foregroundStyle(AppColors.textTertiary)
-                        )
-                        .keyboardType(.decimalPad)
-                        .multilineTextAlignment(.trailing)
-                        .font(.system(size: 15, design: .monospaced))
-                        .foregroundStyle(AppColors.textPrimary)
-                    }
-                }
-
-                formRow(label: "手续费".localized) {
-                    TextField(
-                        "",
-                        text: $fee,
-                        prompt: Text("0").foregroundStyle(AppColors.textTertiary)
-                    )
-                    .keyboardType(.decimalPad)
-                    .multilineTextAlignment(.trailing)
-                    .font(.system(size: 15, design: .monospaced))
-                    .foregroundStyle(AppColors.textPrimary)
-                }
-            }
-
-            // 总计
-            if let qty = Double(quantity), let prc = Double(price), qty > 0, prc > 0 {
-                let feeValue = Double(fee) ?? 0
-                let total = qty * prc + feeValue
-                HStack {
-                    Text("总计".localized)
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(AppColors.textSecondary)
-                    Spacer()
-                    Text(total.compactCurrencyFormatted(code: holding.currency))
-                        .font(.system(size: 17, weight: .semibold, design: .rounded))
-                        .foregroundStyle(AppColors.textPrimary)
-                        .monospacedDigit()
-                }
-            }
-
-            // 按钮
-            HStack(spacing: 12) {
-                Button {
-                    if isEditMode {
-                        onSave?()
-                    } else {
-                        clearForm()
-                    }
-                } label: {
-                    Text(isEditMode ? "取消".localized : "清空".localized)
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundStyle(AppColors.textSecondary)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                        .background {
-                            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                .fill(AppColors.elevatedSurface)
-                        }
-                }
-                .buttonStyle(.plain)
-
-                Button {
-                    saveTransaction()
-                } label: {
-                    Text(isEditMode ? "更新".localized : "保存".localized)
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                        .background {
-                            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                .fill(Color.accentColor)
-                        }
-                }
-                .buttonStyle(.plain)
-                .disabled(!isValidInput)
-                .opacity(isValidInput ? 1 : 0.5)
-            }
-        }
-        .padding(.top, 14)
-        .onAppear {
-            if let tx = editingTransaction {
-                transactionType = TransactionType(rawValue: tx.type) ?? .buy
-                date = tx.date
-                quantity = String(format: "%.2f", tx.quantity)
-                price = String(format: "%.2f", tx.price)
-                fee = tx.fee > 0 ? String(format: "%.2f", tx.fee) : ""
-            }
-        }
-        .alert("错误".localized, isPresented: $showError) {
-            Button("确定".localized) {}
-        } message: {
-            Text(errorMessage)
-        }
-    }
-
-    private func formRow<Content: View>(label: String, @ViewBuilder content: () -> Content) -> some View {
-        HStack {
-            Text(label)
-                .font(.system(size: 13))
-                .foregroundStyle(AppColors.textSecondary)
-            Spacer()
-            content()
-        }
-    }
-
-    private var isValidInput: Bool {
-        guard let qty = Double(quantity), qty > 0 else { return false }
-        guard let prc = Double(price), prc > 0 else { return false }
-        return true
-    }
-
-    private func clearForm() {
-        quantity = ""
-        price = ""
-        fee = ""
-        date = Date()
-        transactionType = .buy
-    }
-
-    private func saveTransaction() {
-        guard let qty = Double(quantity), let prc = Double(price) else { return }
-        let feeValue = Double(fee) ?? 0
-
-        if let existingTransaction = editingTransaction {
-            existingTransaction.type = transactionType.rawValue
-            existingTransaction.date = date
-            existingTransaction.quantity = qty
-            existingTransaction.price = prc
-            existingTransaction.fee = feeValue
-        } else {
-            let transaction = Transaction(
-                type: transactionType.rawValue,
-                date: date,
-                quantity: qty,
-                price: prc,
-                fee: feeValue,
-                currency: holding.currency
-            )
-
-            modelContext.insert(transaction)
-            holding.transactions.append(transaction)
-        }
-
-        do {
-            try modelContext.save()
-            // 通知日历视图刷新
-            NotificationCenter.default.post(name: .portfolioDataDidChange, object: nil)
-            clearForm()
-            onSave?()
-        } catch {
-            errorMessage = error.localizedDescription
-            showError = true
-        }
-    }
-
-    private func fetchPriceForDate() {
-        guard date < Date() else { return }
-
-        isLoadingPrice = true
-
-        Task {
-            do {
-                let chartData = try await MarketDataService.shared.fetchChartData(
-                    symbol: holding.symbol,
-                    interval: "1d",
-                    range: "1mo"
-                )
-
-                let calendar = Calendar.current
-                let targetDate = calendar.startOfDay(for: date)
-
-                if let matchingPrice = chartData.first(where: {
-                    calendar.isDate(calendar.startOfDay(for: $0.date), inSameDayAs: targetDate)
-                }) {
-                    await MainActor.run {
-                        price = String(format: "%.2f", matchingPrice.close)
-                        isLoadingPrice = false
-                    }
-                } else if let latestPrice = chartData.last {
-                    await MainActor.run {
-                        price = String(format: "%.2f", latestPrice.close)
-                        isLoadingPrice = false
-                    }
-                } else {
-                    await MainActor.run {
-                        isLoadingPrice = false
-                    }
-                }
-            } catch {
-                await MainActor.run {
-                    isLoadingPrice = false
-                }
-            }
-        }
-    }
-}
 
 #Preview {
     List {

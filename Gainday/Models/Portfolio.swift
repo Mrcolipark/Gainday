@@ -17,7 +17,7 @@ class Portfolio {
     init(
         id: UUID = UUID(),
         name: String,
-        accountType: String = AccountType.normal.rawValue,
+        accountType: String = AccountType.general.rawValue,
         baseCurrency: String = BaseCurrency.JPY.rawValue,
         sortOrder: Int = 0,
         colorTag: String = "blue",
@@ -35,7 +35,11 @@ class Portfolio {
     }
 
     var accountTypeEnum: AccountType {
-        AccountType(rawValue: accountType) ?? .normal
+        // 处理旧数据中的 "normal" 值
+        if accountType == "normal" {
+            return .general
+        }
+        return AccountType(rawValue: accountType) ?? .general
     }
 
     var baseCurrencyEnum: BaseCurrency {
@@ -52,5 +56,23 @@ class Portfolio {
         case "indigo": return .indigo
         default:       return .blue
         }
+    }
+
+    // MARK: - Account Type Helpers
+
+    /// 该账户允许的市场列表
+    var allowedMarkets: [Market] {
+        accountTypeEnum.allowedMarkets
+    }
+
+    /// 是否为 NISA 账户
+    var isNISA: Bool {
+        accountTypeEnum.isNISA
+    }
+
+    /// 是否可以更改账户类型
+    /// 有持仓时不允许更改账户类型，以避免数据不一致
+    var canChangeAccountType: Bool {
+        holdings.isEmpty
     }
 }
