@@ -2,13 +2,15 @@ import SwiftUI
 import Charts
 
 /// Apple Stocks 风格的交互式股票图表
-/// 支持拖动查看价格、垂直指示线、触觉反馈
+/// 支持拖动查看价格、垂直指示线、触觉反馈、双指缩放
 struct InteractiveStockChart: View {
     let data: [PriceCacheData]
     let currency: String
 
     @State private var selectedDate: Date?
     @State private var selectedPrice: Double?
+    @State private var magnifyScale: CGFloat = 1.0
+    @State private var lastMagnifyScale: CGFloat = 1.0
     @Binding var isInteracting: Bool
 
     private var isPositive: Bool {
@@ -28,6 +30,23 @@ struct InteractiveStockChart: View {
         data.map(\.close).max() ?? 0
     }
 
+    // 根据缩放计算可见数据范围
+    private var visibleData: [PriceCacheData] {
+        guard !data.isEmpty else { return [] }
+        let totalCount = data.count
+        let visibleCount = max(10, Int(Double(totalCount) / Double(magnifyScale)))
+        let startIndex = max(0, totalCount - visibleCount)
+        return Array(data[startIndex..<totalCount])
+    }
+
+    private var visibleMinPrice: Double {
+        visibleData.map(\.close).min() ?? 0
+    }
+
+    private var visibleMaxPrice: Double {
+        visibleData.map(\.close).max() ?? 0
+    }
+
     init(data: [PriceCacheData], currency: String = "USD", isInteracting: Binding<Bool> = .constant(false)) {
         self.data = data
         self.currency = currency
@@ -42,6 +61,7 @@ struct InteractiveStockChart: View {
             // 图表
             if data.count >= 2 {
                 chartView
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
             } else {
                 emptyState
             }
@@ -86,7 +106,27 @@ struct InteractiveStockChart: View {
     // MARK: - 图表视图
 
     private var chartView: some View {
-        Chart(data, id: \.date) { point in
+        let priceRange = visibleMaxPrice - visibleMinPrice
+        let padding = priceRange * 0.05
+        let yMin = visibleMinPrice - padding
+        let yMax = visibleMaxPrice + padding
+
+        return Chart(visibleData, id: \.date) { point in
+            // 渐变填充 - 使用 yStart 防止超出
+            AreaMark(
+                x: .value("Date", point.date),
+                yStart: .value("Min", yMin),
+                yEnd: .value("Price", point.close)
+            )
+            .foregroundStyle(
+                LinearGradient(
+                    colors: [lineColor.opacity(0.2), lineColor.opacity(0.0)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            )
+            .interpolationMethod(.monotone)
+
             // 折线
             LineMark(
                 x: .value("Date", point.date),
@@ -95,24 +135,22 @@ struct InteractiveStockChart: View {
             .foregroundStyle(lineColor)
             .lineStyle(StrokeStyle(lineWidth: 2))
             .interpolationMethod(.monotone)
-
-            // 渐变填充
-            AreaMark(
-                x: .value("Date", point.date),
-                y: .value("Price", point.close)
-            )
-            .foregroundStyle(
-                LinearGradient(
-                    colors: [lineColor.opacity(0.3), lineColor.opacity(0.0)],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-            )
-            .interpolationMethod(.monotone)
         }
-        .chartXAxis(.hidden)
+        .chartXAxis {
+            AxisMarks(values: .stride(by: xAxisStride)) { value in
+                AxisValueLabel {
+                    if let date = value.as(Date.self) {
+                        Text(formatXAxisDate(date))
+                            .font(.system(size: 10))
+                            .foregroundStyle(AppColors.textTertiary)
+                    }
+                }
+            }
+        }
         .chartYAxis {
             AxisMarks(position: .trailing, values: .automatic(desiredCount: 4)) { value in
+                AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5, dash: [4, 4]))
+                    .foregroundStyle(AppColors.dividerColor)
                 AxisValueLabel {
                     if let price = value.as(Double.self) {
                         Text(formatAxisPrice(price))
@@ -122,21 +160,14 @@ struct InteractiveStockChart: View {
                 }
             }
         }
-        .chartYScale(domain: minPrice * 0.995 ... maxPrice * 1.005)
+        .chartYScale(domain: yMin ... yMax)
         .chartOverlay { chartProxy in
             GeometryReader { geometry in
                 Rectangle()
                     .fill(Color.clear)
                     .contentShape(Rectangle())
-                    .gesture(
-                        DragGesture(minimumDistance: 0)
-                            .onChanged { value in
-                                handleDragChange(value: value, chartProxy: chartProxy, geometry: geometry)
-                            }
-                            .onEnded { _ in
-                                handleDragEnd()
-                            }
-                    )
+                    .gesture(dragGesture(chartProxy: chartProxy, geometry: geometry))
+                    .gesture(magnifyGesture)
 
                 // 垂直指示线和选中点
                 if let selectedDate {
@@ -144,6 +175,58 @@ struct InteractiveStockChart: View {
                 }
             }
         }
+    }
+
+    // MARK: - X轴时间间隔
+
+    private var xAxisStride: Calendar.Component {
+        let count = visibleData.count
+        if count <= 7 {
+            return .day
+        } else if count <= 31 {
+            return .weekOfYear
+        } else if count <= 90 {
+            return .month
+        } else {
+            return .month
+        }
+    }
+
+    private func formatXAxisDate(_ date: Date) -> String {
+        let count = visibleData.count
+        if count <= 7 {
+            return date.formatted(.dateTime.weekday(.abbreviated))
+        } else if count <= 31 {
+            return date.formatted(.dateTime.day())
+        } else {
+            return date.formatted(.dateTime.month(.abbreviated))
+        }
+    }
+
+    // MARK: - 手势
+
+    private func dragGesture(chartProxy: ChartProxy, geometry: GeometryProxy) -> some Gesture {
+        DragGesture(minimumDistance: 0)
+            .onChanged { value in
+                handleDragChange(value: value, chartProxy: chartProxy, geometry: geometry)
+            }
+            .onEnded { _ in
+                handleDragEnd()
+            }
+    }
+
+    private var magnifyGesture: some Gesture {
+        MagnifyGesture()
+            .onChanged { value in
+                let newScale = lastMagnifyScale * value.magnification
+                magnifyScale = min(max(newScale, 1.0), 5.0) // 限制 1x - 5x
+            }
+            .onEnded { _ in
+                lastMagnifyScale = magnifyScale
+                // 缩放结束触觉反馈
+                let generator = UIImpactFeedbackGenerator(style: .medium)
+                generator.impactOccurred()
+            }
     }
 
     // MARK: - 选中指示器
@@ -160,20 +243,27 @@ struct InteractiveStockChart: View {
                 path.move(to: CGPoint(x: xPosition, y: 0))
                 path.addLine(to: CGPoint(x: xPosition, y: plotFrame.height))
             }
-            .stroke(AppColors.textSecondary.opacity(0.5), style: StrokeStyle(lineWidth: 1, dash: [5, 3]))
+            .stroke(AppColors.textSecondary.opacity(0.6), style: StrokeStyle(lineWidth: 1))
 
             // 选中点
             if let selectedPrice,
                let yPosition = chartProxy.position(forY: selectedPrice) {
+                // 外圈光晕
+                Circle()
+                    .fill(lineColor.opacity(0.2))
+                    .frame(width: 24, height: 24)
+                    .position(x: xPosition, y: yPosition)
+
+                // 内圈
                 Circle()
                     .fill(lineColor)
                     .frame(width: 10, height: 10)
                     .position(x: xPosition, y: yPosition)
 
-                // 外圈
+                // 白色边框
                 Circle()
-                    .stroke(lineColor.opacity(0.3), lineWidth: 4)
-                    .frame(width: 18, height: 18)
+                    .stroke(.white, lineWidth: 2)
+                    .frame(width: 10, height: 10)
                     .position(x: xPosition, y: yPosition)
             }
         }
@@ -196,10 +286,11 @@ struct InteractiveStockChart: View {
     // MARK: - 手势处理
 
     private func handleDragChange(value: DragGesture.Value, chartProxy: ChartProxy, geometry: GeometryProxy) {
-        let plotFrame = geometry[chartProxy.plotFrame!]
-        let x = value.location.x - plotFrame.origin.x
+        guard let plotFrame = chartProxy.plotFrame else { return }
+        let frame = geometry[plotFrame]
+        let x = value.location.x - frame.origin.x
 
-        guard x >= 0, x <= plotFrame.width else { return }
+        guard x >= 0, x <= frame.width else { return }
 
         if let date: Date = chartProxy.value(atX: x) {
             // 找到最接近的数据点
@@ -227,7 +318,7 @@ struct InteractiveStockChart: View {
     }
 
     private func findClosestPoint(to date: Date) -> PriceCacheData? {
-        data.min(by: { abs($0.date.timeIntervalSince(date)) < abs($1.date.timeIntervalSince(date)) })
+        visibleData.min(by: { abs($0.date.timeIntervalSince(date)) < abs($1.date.timeIntervalSince(date)) })
     }
 
     private func formatAxisPrice(_ price: Double) -> String {
