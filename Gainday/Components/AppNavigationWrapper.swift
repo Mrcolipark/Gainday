@@ -13,10 +13,11 @@ struct AppNavigationWrapper<Content: View>: View {
     var body: some View {
         NavigationStack {
             content
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbarBackground(.hidden, for: .navigationBar)
+                .toolbarTitleDisplayMode(.inline)
+                .toolbarBackground(AppColors.background, for: .navigationBar)
+                .toolbarBackground(.visible, for: .navigationBar)
                 .toolbar {
-                    ToolbarItem(placement: .topBarTrailing) {
+                    ToolbarItem(placement: .confirmationAction) {
                         Button {
                             showSettings = true
                         } label: {
@@ -33,35 +34,20 @@ struct AppNavigationWrapper<Content: View>: View {
     }
 }
 
-// MARK: - View Modifier variant
+// MARK: - 统一导航栏样式修饰符
 
-struct AppNavigationModifier: ViewModifier {
-    let title: String
-    @State private var showSettings = false
-
+struct UnifiedNavigationStyle: ViewModifier {
     func body(content: Content) -> some View {
         content
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(.hidden, for: .navigationBar)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        showSettings = true
-                    } label: {
-                        Image(systemName: "gearshape")
-                            .font(.body.weight(.medium))
-                            .foregroundStyle(AppColors.textPrimary)
-                    }
-                }
-            }
-            .sheet(isPresented: $showSettings) {
-                SettingsView()
-            }
+            .toolbarTitleDisplayMode(.inline)
+            .toolbarBackground(AppColors.background, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
     }
 }
 
 extension View {
-    func appNavigation(title: String) -> some View {
-        modifier(AppNavigationModifier(title: title))
+    /// 应用统一的导航栏样式（背景色与主内容一致）
+    func unifiedNavigationStyle() -> some View {
+        modifier(UnifiedNavigationStyle())
     }
 }

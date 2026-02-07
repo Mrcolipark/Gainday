@@ -20,6 +20,10 @@ struct MarketsView: View {
         case cn = "A股"
         case hk = "港股"
         case jp = "日股"
+
+        var displayName: String {
+            rawValue.localized
+        }
     }
 
     var body: some View {
@@ -108,7 +112,7 @@ struct MarketsView: View {
                         endPoint: .trailing
                     )
                 )
-            Text("盈历")
+            Text("盈历".localized)
                 .font(.system(size: 16, weight: .medium))
                 .foregroundStyle(AppColors.textSecondary)
             Spacer()
@@ -128,7 +132,7 @@ struct MarketsView: View {
             HStack(spacing: 6) {
                 Image(systemName: "chart.line.uptrend.xyaxis")
                     .foregroundStyle(accentOrange)
-                Text("全球指数")
+                Text("全球指数".localized)
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(AppColors.textPrimary)
                 Spacer()
@@ -153,7 +157,7 @@ struct MarketsView: View {
             HStack(spacing: 6) {
                 Image(systemName: "square.grid.3x3.fill")
                     .foregroundStyle(accentOrange)
-                Text("板块热力图")
+                Text("板块热力图".localized)
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(AppColors.textPrimary)
 
@@ -171,7 +175,7 @@ struct MarketsView: View {
                                 await loadMovers()
                             }
                         } label: {
-                            Text(region.rawValue)
+                            Text(region.displayName)
                                 .font(.system(size: 11, weight: selectedMarket == region ? .semibold : .medium))
                                 .foregroundStyle(selectedMarket == region ? .white : AppColors.textSecondary)
                                 .padding(.horizontal, 10)
@@ -205,7 +209,7 @@ struct MarketsView: View {
                     Image(systemName: "chart.bar.xaxis")
                         .font(.title2)
                         .foregroundStyle(AppColors.textTertiary)
-                    Text("暂无\(selectedMarket.rawValue)板块数据")
+                    Text("暂无数据".localized)
                         .font(.caption)
                         .foregroundStyle(AppColors.textSecondary)
                 }
@@ -231,7 +235,7 @@ struct MarketsView: View {
             HStack(spacing: 6) {
                 Image(systemName: "flame.fill")
                     .foregroundStyle(accentOrange)
-                Text("市场热门")
+                Text("市场热门".localized)
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(AppColors.textPrimary)
 
@@ -249,7 +253,7 @@ struct MarketsView: View {
                                 await loadMovers()
                             }
                         } label: {
-                            Text(region.rawValue)
+                            Text(region.displayName)
                                 .font(.system(size: 11, weight: selectedMarket == region ? .semibold : .medium))
                                 .foregroundStyle(selectedMarket == region ? .white : AppColors.textSecondary)
                                 .padding(.horizontal, 10)
@@ -273,7 +277,7 @@ struct MarketsView: View {
             // 涨跌幅/成交量 分段选择器
             HStack(spacing: 0) {
                 ForEach(0..<3, id: \.self) { index in
-                    let titles = ["涨幅榜", "跌幅榜", "成交量"]
+                    let titles = ["涨幅榜".localized, "跌幅榜".localized, "成交量".localized]
                     Button {
                         withAnimation(.easeInOut(duration: 0.2)) {
                             selectedMoverTab = index
@@ -352,7 +356,7 @@ struct MarketsView: View {
             Image(systemName: "chart.line.uptrend.xyaxis")
                 .font(.title2)
                 .foregroundStyle(AppColors.textTertiary)
-            Text("暂无数据")
+            Text("暂无数据".localized)
                 .font(.subheadline)
                 .foregroundStyle(AppColors.textSecondary)
         }
@@ -426,10 +430,12 @@ struct MarketQuoteDetailView: View {
         NavigationStack {
             contentView
                 .navigationTitle(quote.symbol)
-                .navigationBarTitleDisplayMode(.inline)
+                .toolbarTitleDisplayMode(.inline)
+                .toolbarBackground(AppColors.background, for: .navigationBar)
+                .toolbarBackground(.visible, for: .navigationBar)
                 .toolbar {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Button("完成") { dismiss() }
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("完成".localized) { dismiss() }
                     }
                 }
         }
@@ -534,7 +540,7 @@ struct MarketQuoteDetailView: View {
                 ProgressView()
                     .frame(height: 180)
             } else if chartData.isEmpty {
-                Text("暂无图表数据")
+                Text("暂无图表数据".localized)
                     .font(.caption)
                     .foregroundStyle(AppColors.textTertiary)
                     .frame(height: 180)
@@ -552,15 +558,15 @@ struct MarketQuoteDetailView: View {
 
     private var statsSection: some View {
         VStack(spacing: 0) {
-            statsRow("开盘", (displayQuote.regularMarketOpen ?? 0).currencyFormatted(code: currency))
+            statsRow("开盘".localized, (displayQuote.regularMarketOpen ?? 0).currencyFormatted(code: currency))
             Divider().opacity(0.3)
-            statsRow("昨收", (displayQuote.regularMarketPreviousClose ?? 0).currencyFormatted(code: currency))
+            statsRow("昨收".localized, (displayQuote.regularMarketPreviousClose ?? 0).currencyFormatted(code: currency))
             Divider().opacity(0.3)
-            statsRow("最高", (displayQuote.regularMarketDayHigh ?? 0).currencyFormatted(code: currency))
+            statsRow("最高".localized, (displayQuote.regularMarketDayHigh ?? 0).currencyFormatted(code: currency))
             Divider().opacity(0.3)
-            statsRow("最低", (displayQuote.regularMarketDayLow ?? 0).currencyFormatted(code: currency))
+            statsRow("最低".localized, (displayQuote.regularMarketDayLow ?? 0).currencyFormatted(code: currency))
             Divider().opacity(0.3)
-            statsRow("成交量", (displayQuote.regularMarketVolume ?? 0).volumeFormatted())
+            statsRow("成交量".localized, (displayQuote.regularMarketVolume ?? 0).volumeFormatted())
         }
         .background(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
@@ -570,17 +576,17 @@ struct MarketQuoteDetailView: View {
 
     private var moreStatsSection: some View {
         VStack(spacing: 0) {
-            statsRow("市值", formatMarketCap(displayQuote.marketCap))
+            statsRow("市值".localized, formatMarketCap(displayQuote.marketCap))
             Divider().opacity(0.3)
-            statsRow("市盈率 (TTM)", formatValue(displayQuote.trailingPE))
+            statsRow("市盈率 (TTM)".localized, formatValue(displayQuote.trailingPE))
             Divider().opacity(0.3)
-            statsRow("每股收益", formatCurrency(displayQuote.epsTrailingTwelveMonths))
+            statsRow("每股收益".localized, formatCurrency(displayQuote.epsTrailingTwelveMonths))
             Divider().opacity(0.3)
-            statsRow("股息率", formatPercent(displayQuote.dividendYield))
+            statsRow("股息率".localized, formatPercent(displayQuote.dividendYield))
             Divider().opacity(0.3)
-            statsRow("52周最高", formatPrice(displayQuote.fiftyTwoWeekHigh))
+            statsRow("52周最高".localized, formatPrice(displayQuote.fiftyTwoWeekHigh))
             Divider().opacity(0.3)
-            statsRow("52周最低", formatPrice(displayQuote.fiftyTwoWeekLow))
+            statsRow("52周最低".localized, formatPrice(displayQuote.fiftyTwoWeekLow))
         }
         .background(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
@@ -650,85 +656,6 @@ struct MarketQuoteDetailView: View {
     }
 }
 
-// MARK: - Simple Line Chart with Axis
-
-struct SimpleLineChart: View {
-    let data: [PriceCacheData]
-    let isPositive: Bool
-
-    private var prices: [Double] { data.map(\.close) }
-    private var minPrice: Double { prices.min() ?? 0 }
-    private var maxPrice: Double { prices.max() ?? 0 }
-
-    var body: some View {
-        if prices.isEmpty || maxPrice <= minPrice {
-            Text("暂无数据")
-                .font(.caption)
-                .foregroundStyle(AppColors.textTertiary)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-        } else {
-            HStack(spacing: 4) {
-                // Y轴标签
-                VStack {
-                    Text(formatPrice(maxPrice))
-                        .font(.system(size: 9, design: .monospaced))
-                        .foregroundStyle(AppColors.textTertiary)
-                    Spacer()
-                    Text(formatPrice((maxPrice + minPrice) / 2))
-                        .font(.system(size: 9, design: .monospaced))
-                        .foregroundStyle(AppColors.textTertiary)
-                    Spacer()
-                    Text(formatPrice(minPrice))
-                        .font(.system(size: 9, design: .monospaced))
-                        .foregroundStyle(AppColors.textTertiary)
-                }
-                .frame(width: 45)
-
-                // 图表
-                GeometryReader { geo in
-                    let range = maxPrice - minPrice
-                    let stepX = geo.size.width / CGFloat(max(1, prices.count - 1))
-
-                    ZStack {
-                        // 网格线
-                        VStack {
-                            ForEach(0..<3, id: \.self) { _ in
-                                Divider().opacity(0.2)
-                                Spacer()
-                            }
-                        }
-
-                        // 折线
-                        Path { path in
-                            for (index, price) in prices.enumerated() {
-                                let x = CGFloat(index) * stepX
-                                let y = geo.size.height - ((price - minPrice) / range) * geo.size.height
-
-                                if index == 0 {
-                                    path.move(to: CGPoint(x: x, y: y))
-                                } else {
-                                    path.addLine(to: CGPoint(x: x, y: y))
-                                }
-                            }
-                        }
-                        .stroke(isPositive ? AppColors.profit : AppColors.loss, lineWidth: 1.5)
-                    }
-                }
-            }
-        }
-    }
-
-    private func formatPrice(_ price: Double) -> String {
-        if price >= 10000 {
-            return String(format: "%.0f", price)
-        } else if price >= 100 {
-            return String(format: "%.1f", price)
-        } else {
-            return String(format: "%.2f", price)
-        }
-    }
-}
-
 // MARK: - Market Status Pill (多市场状态)
 
 struct MarketStatusPill: View {
@@ -761,10 +688,10 @@ struct MarketStatusPill: View {
     private func updateMarketStatus() {
         let now = Date()
         marketStatuses = [
-            ("美", isUSMarketOpen(now)),
-            ("中", isCNMarketOpen(now)),
-            ("港", isHKMarketOpen(now)),
-            ("日", isJPMarketOpen(now))
+            ("美".localized, isUSMarketOpen(now)),
+            ("中".localized, isCNMarketOpen(now)),
+            ("港".localized, isHKMarketOpen(now)),
+            ("日".localized, isJPMarketOpen(now))
         ]
     }
 
@@ -968,28 +895,28 @@ struct SectorHeatmapGrid: View {
         switch market {
         case .us:
             return [
-                "XLK": "科技", "XLF": "金融", "XLV": "医疗", "XLE": "能源",
-                "XLY": "消费", "XLI": "工业", "XLB": "材料", "XLRE": "地产",
-                "XLC": "通讯", "XLU": "公用", "XLP": "必需品"
+                "XLK": "科技".localized, "XLF": "金融".localized, "XLV": "医疗".localized, "XLE": "能源".localized,
+                "XLY": "消费".localized, "XLI": "工业".localized, "XLB": "材料".localized, "XLRE": "地产".localized,
+                "XLC": "通讯".localized, "XLU": "公用".localized, "XLP": "必需品".localized
             ]
         case .cn:
             return [
-                "512480.SS": "半导体", "512660.SS": "军工", "512800.SS": "银行",
-                "512000.SS": "券商", "512010.SS": "医药", "512880.SS": "证券",
-                "515030.SS": "新能车", "516160.SS": "新能源", "512200.SS": "地产",
-                "512400.SS": "有色", "512690.SS": "白酒", "515790.SS": "光伏"
+                "512480.SS": "半导体".localized, "512660.SS": "军工".localized, "512800.SS": "银行".localized,
+                "512000.SS": "券商".localized, "512010.SS": "医药".localized, "512880.SS": "证券".localized,
+                "515030.SS": "新能车".localized, "516160.SS": "新能源".localized, "512200.SS": "地产".localized,
+                "512400.SS": "有色".localized, "512690.SS": "白酒".localized, "515790.SS": "光伏".localized
             ]
         case .hk:
             return [
-                "2800.HK": "盈富", "2828.HK": "恒中企", "3067.HK": "恒科技",
-                "3033.HK": "南方科技", "2823.HK": "A50", "3188.HK": "华夏300"
+                "2800.HK": "盈富".localized, "2828.HK": "恒中企".localized, "3067.HK": "恒科技".localized,
+                "3033.HK": "南方科技".localized, "2823.HK": "A50".localized, "3188.HK": "华夏300".localized
             ]
         case .jp:
             return [
-                "1615.T": "银行", "1617.T": "食品", "1618.T": "能源",
-                "1619.T": "建筑", "1620.T": "材料", "1621.T": "医药",
-                "1622.T": "汽车", "1623.T": "运输", "1624.T": "商社",
-                "1625.T": "零售", "1626.T": "通讯", "1627.T": "电力"
+                "1615.T": "银行".localized, "1617.T": "食品".localized, "1618.T": "能源".localized,
+                "1619.T": "建筑".localized, "1620.T": "材料".localized, "1621.T": "医药".localized,
+                "1622.T": "汽车".localized, "1623.T": "运输".localized, "1624.T": "商社".localized,
+                "1625.T": "零售".localized, "1626.T": "通讯".localized, "1627.T": "电力".localized
             ]
         }
     }
@@ -1086,7 +1013,7 @@ struct MoverRow: View {
                     Text((quote.regularMarketVolume ?? 0).volumeFormatted())
                         .font(.system(size: 14, weight: .semibold, design: .monospaced))
                         .foregroundStyle(AppColors.textPrimary)
-                    Text("成交量")
+                    Text("成交量".localized)
                         .font(.system(size: 10))
                         .foregroundStyle(AppColors.textTertiary)
                 }

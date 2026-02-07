@@ -19,6 +19,10 @@ struct NewsView: View {
         case cn = "A股"
         case hk = "港股"
         case jp = "日股"
+
+        var displayName: String {
+            rawValue.localized
+        }
     }
 
     var body: some View {
@@ -114,7 +118,7 @@ struct NewsView: View {
                         endPoint: .trailing
                     )
                 )
-            Text("盈历")
+            Text("盈历".localized)
                 .font(.system(size: 16, weight: .medium))
                 .foregroundStyle(AppColors.textSecondary)
             Spacer()
@@ -124,7 +128,7 @@ struct NewsView: View {
                 Circle()
                     .fill(isLoading ? Color.orange : Color.green)
                     .frame(width: 6, height: 6)
-                Text(isLoading ? "加载中" : "实时")
+                Text(isLoading ? "加载中".localized : "实时".localized)
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(AppColors.textSecondary)
             }
@@ -147,7 +151,7 @@ struct NewsView: View {
             HStack(spacing: 6) {
                 Image(systemName: "bolt.fill")
                     .foregroundStyle(accentBlue)
-                Text("市场快讯")
+                Text("市场快讯".localized)
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(AppColors.textPrimary)
                 Spacer()
@@ -191,7 +195,7 @@ struct NewsView: View {
             HStack(spacing: 6) {
                 Image(systemName: "newspaper.fill")
                     .foregroundStyle(accentBlue)
-                Text("财经要闻")
+                Text("财经要闻".localized)
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(AppColors.textPrimary)
                 Spacer()
@@ -206,7 +210,7 @@ struct NewsView: View {
                             selectedMarket = market
                         }
                     } label: {
-                        Text(market.rawValue)
+                        Text(market.displayName)
                             .font(.system(size: 13, weight: selectedMarket == market ? .semibold : .medium))
                             .foregroundStyle(selectedMarket == market ? .white : AppColors.textSecondary)
                             .frame(maxWidth: .infinity)
@@ -242,7 +246,8 @@ struct NewsView: View {
                         subtitle: featured.description,
                         source: featured.source,
                         timeAgo: featured.timeAgo,
-                        imageIcon: iconForSource(featured.source)
+                        imageIcon: iconForSource(featured.source),
+                        imageURL: featured.imageURL
                     )
                 }
                 .buttonStyle(.plain)
@@ -287,7 +292,8 @@ struct NewsView: View {
                                 source: news.source,
                                 timeAgo: news.timeAgo,
                                 iconName: iconForSource(news.source),
-                                accentColor: accentBlue
+                                accentColor: accentBlue,
+                                imageURL: news.imageURL
                             )
                         }
                         .buttonStyle(.plain)
@@ -342,7 +348,7 @@ struct NewsView: View {
             HStack(spacing: 6) {
                 Image(systemName: "link")
                     .foregroundStyle(accentBlue)
-                Text("更多来源")
+                Text("更多来源".localized)
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(AppColors.textPrimary)
                 Spacer()
@@ -374,20 +380,17 @@ struct NewsView: View {
     private func iconForSource(_ source: String) -> String {
         let sourceIcons: [String: String] = [
             "Yahoo Finance": "chart.line.uptrend.xyaxis",
-            "Yahoo!ファイナンス": "chart.line.uptrend.xyaxis",
-            "Yahoo HK": "chart.line.uptrend.xyaxis",
+            "BBC": "tv.fill",
             "Bloomberg": "building.2.fill",
-            "Bloomberg Japan": "building.2.fill",
             "Reuters": "globe",
-            "ロイター": "globe",
             "CNBC": "tv.fill",
+            "SCMP": "newspaper.fill",
             "新浪财经": "s.circle.fill",
-            "东方财富": "chart.bar.fill",
-            "财联社": "newspaper.fill",
-            "AAStocks": "chart.xyaxis.line",
-            "日本経済新聞": "n.circle.fill",
+            "新浪港股": "s.circle.fill",
+            "鉅亨網": "dollarsign.circle.fill",
+            "經濟日報": "building.2.fill",
             "NHK": "tv.fill",
-            "香港经济日报": "dollarsign.circle.fill"
+            "日本経済新聞": "n.circle.fill"
         ]
         return sourceIcons[source] ?? "newspaper.fill"
     }
@@ -414,9 +417,9 @@ struct NewsView: View {
             )
         case .hk:
             return (
-                "港股恒指高开 科技股造好",
-                "腾讯、阿里领涨蓝筹，南向资金持续流入",
-                "香港经济日报",
+                "港股恒指高開 科技股造好",
+                "騰訊、阿里領漲藍籌，南向資金持續流入",
+                "經濟日報",
                 "building.2.fill",
                 "https://invest.hket.com"
             )
@@ -451,11 +454,11 @@ struct NewsView: View {
             ]
         case .hk:
             return [
-                ("腾讯回购股份计划持续", "AAStocks", "message.fill", "http://www.aastocks.com"),
-                ("阿里巴巴云业务增长强劲", "AAStocks", "cloud.fill", "http://www.aastocks.com"),
-                ("美团外卖业务盈利改善", "AAStocks", "bag.fill", "http://www.aastocks.com"),
-                ("小米汽车订单超预期", "AAStocks", "car.fill", "http://www.aastocks.com"),
-                ("港交所成交额回暖", "AAStocks", "building.columns.fill", "http://www.aastocks.com"),
+                ("騰訊回購股份計劃持續", "鉅亨網", "message.fill", "https://news.cnyes.com/news/cat/hk_stock"),
+                ("阿里巴巴雲業務增長強勁", "經濟日報", "cloud.fill", "https://invest.hket.com"),
+                ("美團外賣業務盈利改善", "鉅亨網", "bag.fill", "https://news.cnyes.com/news/cat/hk_stock"),
+                ("小米汽車訂單超預期", "經濟日報", "car.fill", "https://invest.hket.com"),
+                ("港交所成交額回暖", "鉅亨網", "building.columns.fill", "https://news.cnyes.com/news/cat/hk_stock"),
             ]
         case .jp:
             return [
@@ -488,11 +491,11 @@ struct NewsView: View {
             ]
         case .hk:
             return [
-                ("经济日报", "dollarsign.circle.fill", "https://invest.hket.com"),
-                ("信报", "doc.text.fill", "https://www.hkej.com"),
-                ("AAStocks", "chart.xyaxis.line", "http://www.aastocks.com"),
+                ("鉅亨網", "dollarsign.circle.fill", "https://news.cnyes.com/news/cat/hk_stock"),
+                ("經濟日報", "building.2.fill", "https://invest.hket.com"),
+                ("信報", "doc.text.fill", "https://www.hkej.com"),
                 ("港交所", "building.columns.fill", "https://www.hkex.com.hk"),
-                ("明报", "newspaper.fill", "https://finance.mingpao.com"),
+                ("明報", "newspaper.fill", "https://finance.mingpao.com"),
             ]
         case .jp:
             return [
@@ -534,24 +537,40 @@ struct FeaturedNewsCard: View {
     let source: String
     let timeAgo: String
     let imageIcon: String
+    var imageURL: String? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            // 图片占位
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        colors: [Color.blue.opacity(0.2), Color.purple.opacity(0.1)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-                .frame(height: 120)
-                .overlay {
-                    Image(systemName: imageIcon)
-                        .font(.system(size: 32))
-                        .foregroundStyle(Color.blue.opacity(0.5))
+            // 新闻图片
+            if let urlString = imageURL, let url = URL(string: urlString) {
+                AsyncImage(url: url) { phase in
+                    switch phase {
+                    case .empty:
+                        // Loading state
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(AppColors.elevatedSurface)
+                            .frame(height: 140)
+                            .overlay {
+                                ProgressView()
+                                    .tint(AppColors.textSecondary)
+                            }
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                            .frame(height: 140)
+                            .clipped()
+                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    case .failure:
+                        // Fallback to gradient + icon
+                        fallbackImageView
+                    @unknown default:
+                        fallbackImageView
+                    }
                 }
+            } else {
+                fallbackImageView
+            }
 
             VStack(alignment: .leading, spacing: 6) {
                 Text(title)
@@ -584,7 +603,7 @@ struct FeaturedNewsCard: View {
                     Spacer()
 
                     HStack(spacing: 4) {
-                        Text("阅读全文")
+                        Text("阅读全文".localized)
                             .font(.system(size: 11, weight: .medium))
                         Image(systemName: "arrow.up.right")
                             .font(.system(size: 10, weight: .medium))
@@ -598,6 +617,24 @@ struct FeaturedNewsCard: View {
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .fill(AppColors.cardSurface)
         )
+    }
+
+    // Fallback gradient + icon view
+    private var fallbackImageView: some View {
+        RoundedRectangle(cornerRadius: 12, style: .continuous)
+            .fill(
+                LinearGradient(
+                    colors: [Color.blue.opacity(0.2), Color.purple.opacity(0.1)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
+            .frame(height: 120)
+            .overlay {
+                Image(systemName: imageIcon)
+                    .font(.system(size: 32))
+                    .foregroundStyle(Color.blue.opacity(0.5))
+            }
     }
 }
 
@@ -638,17 +675,38 @@ struct NewsRow: View {
     var timeAgo: String = ""
     var iconName: String = "newspaper"
     var accentColor: Color = .blue
+    var imageURL: String? = nil
 
     var body: some View {
         HStack(spacing: 12) {
-            // 图标
-            ZStack {
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(accentColor.opacity(0.12))
-                    .frame(width: 44, height: 44)
-                Image(systemName: iconName)
-                    .font(.system(size: 16))
-                    .foregroundStyle(accentColor)
+            // 缩略图或图标
+            if let urlString = imageURL, let url = URL(string: urlString) {
+                AsyncImage(url: url) { phase in
+                    switch phase {
+                    case .empty:
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(AppColors.elevatedSurface)
+                            .frame(width: 60, height: 60)
+                            .overlay {
+                                ProgressView()
+                                    .scaleEffect(0.6)
+                                    .tint(AppColors.textSecondary)
+                            }
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                            .frame(width: 60, height: 60)
+                            .clipped()
+                            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    case .failure:
+                        fallbackIconView
+                    @unknown default:
+                        fallbackIconView
+                    }
+                }
+            } else {
+                fallbackIconView
             }
 
             VStack(alignment: .leading, spacing: 4) {
@@ -681,6 +739,17 @@ struct NewsRow: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
+    }
+
+    private var fallbackIconView: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(accentColor.opacity(0.12))
+                .frame(width: 44, height: 44)
+            Image(systemName: iconName)
+                .font(.system(size: 16))
+                .foregroundStyle(accentColor)
+        }
     }
 }
 

@@ -22,7 +22,7 @@ struct AnalyticsView: View {
             ScrollView {
                 VStack(spacing: 16) {
                     // Time range picker
-                    Picker("时间范围", selection: $selectedRange) {
+                    Picker("时间范围".localized, selection: $selectedRange) {
                         ForEach(TimeRange.allCases) { range in
                             Text(range.displayName).tag(range)
                         }
@@ -47,7 +47,7 @@ struct AnalyticsView: View {
                 .padding(.bottom, 20)
             }
             .background(analyticsBackground)
-            .navigationTitle("分析")
+            .navigationTitle("分析".localized)
             .task {
                 withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
                     animateContent = true
@@ -72,7 +72,7 @@ struct AnalyticsView: View {
                     Image(systemName: "chart.line.uptrend.xyaxis")
                         .font(.caption)
                         .foregroundStyle(.green)
-                    Text("累计收益")
+                    Text("累计收益".localized)
                         .font(.headline)
                     Spacer()
                     if let last = filteredSnapshots.last {
@@ -100,7 +100,7 @@ struct AnalyticsView: View {
                     Image(systemName: "chart.bar.fill")
                         .font(.caption)
                         .foregroundStyle(.blue)
-                    Text("月度盈亏")
+                    Text("月度盈亏".localized)
                         .font(.headline)
                 }
 
@@ -124,7 +124,7 @@ struct AnalyticsView: View {
                     Image(systemName: "list.number")
                         .font(.caption)
                         .foregroundStyle(.orange)
-                    Text("持仓盈亏排行")
+                    Text("持仓盈亏排行".localized)
                         .font(.headline)
                 }
 
@@ -150,7 +150,7 @@ struct AnalyticsView: View {
                     .font(.title2)
                     .foregroundStyle(.secondary.opacity(0.4))
             }
-            Text("暂无数据")
+            Text("暂无数据".localized)
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
         }

@@ -62,12 +62,14 @@ struct SettingsView: View {
                 .padding(16)
             }
             .background(AppColors.background)
-            .navigationTitle("设置")
+            .navigationTitle("设置".localized)
             #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
+            .toolbarTitleDisplayMode(.inline)
+            .toolbarBackground(AppColors.background, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("完成") {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("完成".localized) {
                         dismiss()
                     }
                     .font(.system(size: 16, weight: .semibold))
@@ -78,20 +80,20 @@ struct SettingsView: View {
             .sheet(isPresented: $showAddAccount) {
                 AddAccountSheet()
             }
-            .alert("确认删除", isPresented: $showDeleteConfirmation) {
-                Button("取消", role: .cancel) {
+            .alert("确认删除".localized, isPresented: $showDeleteConfirmation) {
+                Button("取消".localized, role: .cancel) {
                     portfolioToDelete = nil
                 }
-                Button("删除", role: .destructive) {
+                Button("删除".localized, role: .destructive) {
                     if let portfolio = portfolioToDelete {
                         modelContext.delete(portfolio)
                         portfolioToDelete = nil
-                        ErrorPresenter.shared.showSuccess("账户已删除")
+                        ErrorPresenter.shared.showSuccess("账户已删除".localized)
                     }
                 }
             } message: {
                 if let portfolio = portfolioToDelete {
-                    Text("确定要删除「\(portfolio.name)」吗？\n\n该账户下的所有持仓和交易记录都将被永久删除，此操作无法恢复。")
+                    Text("\("确定要删除吗".localized)\n「\(portfolio.name)」\n\n\("该账户下的所有持仓和交易记录都将被永久删除，此操作无法恢复。".localized)")
                 }
             }
             .fileImporter(
@@ -113,14 +115,14 @@ struct SettingsView: View {
                     ErrorPresenter.shared.showError(error)
                 }
             }
-            .alert("导入完成", isPresented: $showImportResult) {
-                Button("确定") {
+            .alert("导入完成".localized, isPresented: $showImportResult) {
+                Button("确定".localized) {
                     importResult = nil
                 }
             } message: {
                 if let result = importResult {
-                    let errorsText = result.errors.isEmpty ? "" : "\n\n⚠️ \(result.errors.count) 条记录导入失败"
-                    Text("成功导入:\n• 账户: \(result.portfoliosCreated) 个\n• 持仓: \(result.holdingsCreated) 个\n• 交易: \(result.transactionsCreated) 笔\(errorsText)")
+                    let errorsText = result.errors.isEmpty ? "" : "\n\n⚠️ \(result.errors.count) \("条记录导入失败".localized)"
+                    Text("\("成功导入".localized):\n• \("账户".localized): \(result.portfoliosCreated) \("个".localized)\n• \("持仓".localized): \(result.holdingsCreated) \("个".localized)\n• 交易: \(result.transactionsCreated) \("笔".localized)\(errorsText)")
                 }
             }
         }
@@ -130,13 +132,13 @@ struct SettingsView: View {
 
     private var currencySection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            sectionHeader("基准货币", icon: "yensign.circle.fill")
+            sectionHeader("基准货币".localized, icon: "yensign.circle.fill")
 
             VStack(spacing: 0) {
                 HStack(spacing: 12) {
                     settingsIcon("yensign.circle.fill")
 
-                    Text("基准货币")
+                    Text("基准货币".localized)
                         .font(.system(size: 15))
                         .foregroundStyle(AppColors.textPrimary)
 
@@ -163,7 +165,7 @@ struct SettingsView: View {
 
     private var accountsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            sectionHeader("账户管理", icon: "building.columns.fill")
+            sectionHeader("账户管理".localized, icon: "building.columns.fill")
 
             VStack(spacing: 0) {
                 ForEach(Array(portfolios.enumerated()), id: \.element.id) { index, portfolio in
@@ -199,7 +201,7 @@ struct SettingsView: View {
                                 .foregroundStyle(accentColor)
                         }
 
-                        Text("添加账户")
+                        Text("添加账户".localized)
                             .font(.system(size: 15, weight: .medium))
                             .foregroundStyle(accentColor)
 
@@ -254,7 +256,7 @@ struct SettingsView: View {
                     Text("·")
                         .foregroundStyle(AppColors.textTertiary.opacity(0.5))
 
-                    Text("\(portfolio.holdings.count) 持仓")
+                    Text("\(portfolio.holdings.count) \("持仓".localized)")
                         .font(.system(size: 12))
                         .foregroundStyle(AppColors.textTertiary)
                 }
@@ -274,13 +276,13 @@ struct SettingsView: View {
 
     private var syncSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            sectionHeader("数据同步", icon: "arrow.triangle.2.circlepath")
+            sectionHeader("数据同步".localized, icon: "arrow.triangle.2.circlepath")
 
             VStack(spacing: 0) {
                 HStack(spacing: 12) {
                     settingsIcon("icloud.fill")
 
-                    Text("iCloud 同步")
+                    Text("iCloud 同步".localized)
                         .font(.system(size: 15))
                         .foregroundStyle(AppColors.textPrimary)
 
@@ -303,14 +305,14 @@ struct SettingsView: View {
 
     private var appearanceSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            sectionHeader("外观", icon: "moon.circle.fill")
+            sectionHeader("外观".localized, icon: "moon.circle.fill")
 
             VStack(spacing: 0) {
                 // 主题
                 HStack(spacing: 12) {
                     settingsIcon("circle.lefthalf.filled")
 
-                    Text("主题")
+                    Text("主题".localized)
                         .font(.system(size: 15))
                         .foregroundStyle(AppColors.textPrimary)
 
@@ -320,9 +322,9 @@ struct SettingsView: View {
                         get: { appearanceManager.appearance },
                         set: { appearanceManager.appearance = $0 }
                     )) {
-                        Text("跟随系统").tag("system")
-                        Text("浅色").tag("light")
-                        Text("深色").tag("dark")
+                        Text("跟随系统".localized).tag("system")
+                        Text("浅色".localized).tag("light")
+                        Text("深色".localized).tag("dark")
                     }
                     .labelsHidden()
                     .tint(AppColors.textSecondary)
@@ -337,7 +339,7 @@ struct SettingsView: View {
                 HStack(spacing: 12) {
                     settingsIcon("globe")
 
-                    Text("语言")
+                    Text("语言".localized)
                         .font(.system(size: 15))
                         .foregroundStyle(AppColors.textPrimary)
 
@@ -347,7 +349,7 @@ struct SettingsView: View {
                         get: { languageManager.language },
                         set: { languageManager.language = $0 }
                     )) {
-                        Text("跟随系统").tag("system")
+                        Text("跟随系统".localized).tag("system")
                         Text("简体中文").tag("zh-Hans")
                         Text("繁體中文").tag("zh-Hant")
                         Text("English").tag("en")
@@ -369,7 +371,7 @@ struct SettingsView: View {
 
     private var dataSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            sectionHeader("数据管理", icon: "externaldrive.fill")
+            sectionHeader("数据管理".localized, icon: "externaldrive.fill")
 
             VStack(spacing: 0) {
                 // 导出
@@ -379,7 +381,7 @@ struct SettingsView: View {
                     HStack(spacing: 12) {
                         settingsIcon("square.and.arrow.up.fill")
 
-                        Text("导出数据 (CSV)")
+                        Text("导出数据 (CSV)".localized)
                             .font(.system(size: 15))
                             .foregroundStyle(AppColors.textPrimary)
 
@@ -405,7 +407,7 @@ struct SettingsView: View {
                     HStack(spacing: 12) {
                         settingsIcon("square.and.arrow.down.fill")
 
-                        Text("导入数据 (CSV)")
+                        Text("导入数据 (CSV)".localized)
                             .font(.system(size: 15))
                             .foregroundStyle(AppColors.textPrimary)
 
@@ -432,20 +434,20 @@ struct SettingsView: View {
 
     private var aboutSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            sectionHeader("关于", icon: "info.circle.fill")
+            sectionHeader("关于".localized, icon: "info.circle.fill")
 
             VStack(spacing: 0) {
                 // App 名称
                 HStack(spacing: 12) {
                     settingsIcon("sparkles")
 
-                    Text("App 名称")
+                    Text("App 名称".localized)
                         .font(.system(size: 15))
                         .foregroundStyle(AppColors.textPrimary)
 
                     Spacer()
 
-                    Text("GainDay 盈历")
+                    Text("GainDay 盈历".localized)
                         .font(.system(size: 14))
                         .foregroundStyle(AppColors.textSecondary)
                 }
@@ -459,7 +461,7 @@ struct SettingsView: View {
                 HStack(spacing: 12) {
                     settingsIcon("info.circle.fill")
 
-                    Text("版本")
+                    Text("版本".localized)
                         .font(.system(size: 15))
                         .foregroundStyle(AppColors.textPrimary)
 
@@ -480,7 +482,7 @@ struct SettingsView: View {
                     HStack(spacing: 12) {
                         settingsIcon("bubble.left.and.bubble.right.fill")
 
-                        Text("反馈与建议")
+                        Text("反馈与建议".localized)
                             .font(.system(size: 15))
                             .foregroundStyle(AppColors.textPrimary)
 
@@ -506,7 +508,7 @@ struct SettingsView: View {
     #if DEBUG
     private var debugSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            sectionHeader("开发者选项", icon: "hammer.fill")
+            sectionHeader("开发者选项".localized, icon: "hammer.fill")
 
             DebugDataSection()
                 .background(
@@ -609,12 +611,14 @@ struct AddAccountSheet: View {
             .safeAreaInset(edge: .bottom) {
                 saveButtonBar
             }
-            .navigationTitle("添加账户")
+            .navigationTitle("添加账户".localized)
             #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
+            .toolbarTitleDisplayMode(.inline)
+            .toolbarBackground(AppColors.background, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("取消") { dismiss() }
+                    Button("取消".localized) { dismiss() }
                         .foregroundStyle(AppColors.textPrimary)
                 }
             }
@@ -626,19 +630,19 @@ struct AddAccountSheet: View {
 
     private var accountInfoSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            sectionTitle("账户信息")
+            sectionTitle("账户信息".localized)
 
             VStack(spacing: 16) {
                 // 账户名称
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("账户名称")
+                    Text("账户名称".localized)
                         .font(.system(size: 13, weight: .medium))
                         .foregroundStyle(AppColors.textSecondary)
 
                     TextField(
                         "",
                         text: $name,
-                        prompt: Text("如: 楽天証券、富途牛牛")
+                        prompt: Text("如: 楽天証券、富途牛牛".localized)
                             .foregroundStyle(AppColors.textTertiary)
                     )
                     .font(.system(size: 16))
@@ -653,7 +657,7 @@ struct AddAccountSheet: View {
 
                 // 账户类型
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("账户类型")
+                    Text("账户类型".localized)
                         .font(.system(size: 13, weight: .medium))
                         .foregroundStyle(AppColors.textSecondary)
 
@@ -684,7 +688,7 @@ struct AddAccountSheet: View {
 
                 // 基准货币
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("基准货币")
+                    Text("基准货币".localized)
                         .font(.system(size: 13, weight: .medium))
                         .foregroundStyle(AppColors.textSecondary)
 
@@ -719,7 +723,7 @@ struct AddAccountSheet: View {
 
     private var colorSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            sectionTitle("标识颜色")
+            sectionTitle("标识颜色".localized)
 
             VStack(spacing: 16) {
                 // 预览
@@ -742,7 +746,7 @@ struct AddAccountSheet: View {
                     }
 
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(name.isEmpty ? "账户名称" : name)
+                        Text(name.isEmpty ? "账户名称".localized : name)
                             .font(.system(size: 16, weight: .medium))
                             .foregroundStyle(AppColors.textPrimary)
 
@@ -809,7 +813,7 @@ struct AddAccountSheet: View {
             Button {
                 saveAccount()
             } label: {
-                Text("保存账户")
+                Text("保存账户".localized)
                     .font(.system(size: 17, weight: .semibold))
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)

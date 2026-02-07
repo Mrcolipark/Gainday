@@ -16,7 +16,7 @@ struct PortfolioHeaderView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             // 标题
-            Text("投资组合")
+            Text("投资组合".localized)
                 .font(.system(size: 13, weight: .medium))
                 .foregroundStyle(AppColors.textSecondary)
 
@@ -44,14 +44,14 @@ struct PortfolioHeaderView: View {
                             .fill(isPositive ? AppColors.profit : AppColors.loss)
                     )
 
-                Text("今日")
+                Text("今日".localized)
                     .font(.system(size: 15))
                     .foregroundStyle(AppColors.textSecondary)
             }
 
             // 总盈亏 (次要信息)
             HStack(spacing: 4) {
-                Text("总盈亏")
+                Text("总盈亏".localized)
                     .foregroundStyle(AppColors.textSecondary)
                 Text(unrealizedPnL.currencyFormatted(code: baseCurrency, showSign: true))
                     .foregroundStyle(unrealizedPnL >= 0 ? AppColors.profit : AppColors.loss)

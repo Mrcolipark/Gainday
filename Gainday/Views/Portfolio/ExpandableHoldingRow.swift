@@ -135,15 +135,15 @@ struct ExpandableHoldingRow: View {
             }
         }
         .liquidGlass(cornerRadius: 16)
-        .alert("删除交易？", isPresented: $showDeleteConfirm) {
-            Button("取消", role: .cancel) {}
-            Button("删除", role: .destructive) {
+        .alert("删除交易？".localized, isPresented: $showDeleteConfirm) {
+            Button("取消".localized, role: .cancel) {}
+            Button("删除".localized, role: .destructive) {
                 if let tx = transactionToDelete {
                     deleteTransaction(tx)
                 }
             }
         } message: {
-            Text("此操作无法撤销。")
+            Text("此操作无法撤销。".localized)
         }
     }
 
@@ -162,7 +162,7 @@ struct ExpandableHoldingRow: View {
                     }
                 }
 
-                Text("\(holding.totalQuantity.formattedQuantity)股 · \(holding.averageCost.compactCurrencyFormatted(code: holding.currency))")
+                Text("\(holding.totalQuantity.formattedQuantity)\("股".localized) · \(holding.averageCost.compactCurrencyFormatted(code: holding.currency))")
                     .font(.system(size: 12))
                     .foregroundStyle(AppColors.textSecondary)
             }
@@ -214,8 +214,8 @@ struct ExpandableHoldingRow: View {
                 .padding(.horizontal, 16)
 
             HStack(spacing: 8) {
-                tabButton(title: "交易记录", tab: .transactions)
-                tabButton(title: "添加", tab: .addNew)
+                tabButton(title: "交易记录".localized, tab: .transactions)
+                tabButton(title: "添加".localized, tab: .addNew)
                 Spacer()
             }
             .padding(.horizontal, 16)
@@ -285,7 +285,7 @@ struct ExpandableHoldingRow: View {
                     Image(systemName: "doc.text")
                         .font(.system(size: 24))
                         .foregroundStyle(AppColors.textTertiary)
-                    Text("暂无交易记录")
+                    Text("暂无交易记录".localized)
                         .font(.system(size: 13))
                         .foregroundStyle(AppColors.textSecondary)
                 }
@@ -302,7 +302,7 @@ struct ExpandableHoldingRow: View {
                                     transactionToDelete = transaction
                                     showDeleteConfirm = true
                                 } label: {
-                                    Label("删除", systemImage: "trash")
+                                    Label("删除".localized, systemImage: "trash")
                                 }
                             }
                             .swipeActions(edge: .leading, allowsFullSwipe: true) {
@@ -312,7 +312,7 @@ struct ExpandableHoldingRow: View {
                                         selectedTab = .edit
                                     }
                                 } label: {
-                                    Label("编辑", systemImage: "pencil")
+                                    Label("编辑".localized, systemImage: "pencil")
                                 }
                                 .tint(.blue)
                             }
@@ -410,7 +410,7 @@ struct InlineAddTransactionForm: View {
         VStack(spacing: 16) {
             if isEditMode {
                 HStack {
-                    Text("编辑交易")
+                    Text("编辑交易".localized)
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundStyle(AppColors.accent)
                     Spacer()
@@ -441,7 +441,7 @@ struct InlineAddTransactionForm: View {
 
             // 表单字段
             VStack(spacing: 12) {
-                formRow(label: "日期") {
+                formRow(label: "日期".localized) {
                     DatePicker("", selection: $date, displayedComponents: .date)
                         .labelsHidden()
                         .datePickerStyle(.compact)
@@ -450,7 +450,7 @@ struct InlineAddTransactionForm: View {
                         }
                 }
 
-                formRow(label: "数量") {
+                formRow(label: "数量".localized) {
                     TextField(
                         "",
                         text: $quantity,
@@ -462,7 +462,7 @@ struct InlineAddTransactionForm: View {
                     .foregroundStyle(AppColors.textPrimary)
                 }
 
-                formRow(label: "价格") {
+                formRow(label: "价格".localized) {
                     HStack {
                         if isLoadingPrice {
                             ProgressView()
@@ -480,7 +480,7 @@ struct InlineAddTransactionForm: View {
                     }
                 }
 
-                formRow(label: "手续费") {
+                formRow(label: "手续费".localized) {
                     TextField(
                         "",
                         text: $fee,
@@ -498,7 +498,7 @@ struct InlineAddTransactionForm: View {
                 let feeValue = Double(fee) ?? 0
                 let total = qty * prc + feeValue
                 HStack {
-                    Text("总计")
+                    Text("总计".localized)
                         .font(.system(size: 13, weight: .medium))
                         .foregroundStyle(AppColors.textSecondary)
                     Spacer()
@@ -518,7 +518,7 @@ struct InlineAddTransactionForm: View {
                         clearForm()
                     }
                 } label: {
-                    Text(isEditMode ? "取消" : "清空")
+                    Text(isEditMode ? "取消".localized : "清空".localized)
                         .font(.system(size: 14, weight: .medium))
                         .foregroundStyle(AppColors.textSecondary)
                         .frame(maxWidth: .infinity)
@@ -533,7 +533,7 @@ struct InlineAddTransactionForm: View {
                 Button {
                     saveTransaction()
                 } label: {
-                    Text(isEditMode ? "更新" : "保存")
+                    Text(isEditMode ? "更新".localized : "保存".localized)
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
@@ -558,8 +558,8 @@ struct InlineAddTransactionForm: View {
                 fee = tx.fee > 0 ? String(format: "%.2f", tx.fee) : ""
             }
         }
-        .alert("错误", isPresented: $showError) {
-            Button("确定") {}
+        .alert("错误".localized, isPresented: $showError) {
+            Button("确定".localized) {}
         } message: {
             Text(errorMessage)
         }

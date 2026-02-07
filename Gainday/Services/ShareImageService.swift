@@ -92,9 +92,9 @@ struct ShareImageService {
 
         var size: CGSize {
             switch self {
-            // 增大视图尺寸以容纳详细数据（日期+金额+百分比）
-            case .square: return CGSize(width: 440, height: 580)
-            case .story:  return CGSize(width: 440, height: 780)
+            // 增大视图尺寸以容纳6行日历（某些月份跨越6周）
+            case .square: return CGSize(width: 440, height: 660)
+            case .story:  return CGSize(width: 440, height: 860)
             }
         }
     }

@@ -9,15 +9,15 @@ struct WeekCalendarProvider: TimelineProvider {
     }
 
     func getSnapshot(in context: Context, completion: @escaping (WeekCalendarEntry) -> Void) {
-        let days = WidgetDataLoader.loadWeekPnL()
-        let weekPnL = days.reduce(0) { $0 + $1.pnl }
-        completion(WeekCalendarEntry(date: Date(), days: days, weekPnL: weekPnL, baseCurrency: "JPY"))
+        let result = WidgetDataLoader.loadWeekPnL()
+        let weekPnL = result.days.reduce(0) { $0 + $1.pnl }
+        completion(WeekCalendarEntry(date: Date(), days: result.days, weekPnL: weekPnL, baseCurrency: result.baseCurrency))
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<WeekCalendarEntry>) -> Void) {
-        let days = WidgetDataLoader.loadWeekPnL()
-        let weekPnL = days.reduce(0) { $0 + $1.pnl }
-        let entry = WeekCalendarEntry(date: Date(), days: days, weekPnL: weekPnL, baseCurrency: "JPY")
+        let result = WidgetDataLoader.loadWeekPnL()
+        let weekPnL = result.days.reduce(0) { $0 + $1.pnl }
+        let entry = WeekCalendarEntry(date: Date(), days: result.days, weekPnL: weekPnL, baseCurrency: result.baseCurrency)
         let nextUpdate = Calendar.current.date(byAdding: .hour, value: 1, to: Date())!
         let timeline = Timeline(entries: [entry], policy: .after(nextUpdate))
         completion(timeline)

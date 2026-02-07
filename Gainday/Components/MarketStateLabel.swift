@@ -55,7 +55,7 @@ struct MarketStatusIndicator: View {
 
 #Preview {
     ZStack {
-        Color(.systemGroupedBackground).ignoresSafeArea()
+        AppColors.background.ignoresSafeArea()
         VStack(spacing: 16) {
             HStack(spacing: 8) {
                 MarketStateLabel(state: .pre)

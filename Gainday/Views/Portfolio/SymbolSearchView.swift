@@ -13,9 +13,16 @@ struct SymbolSearchView: View {
     @State private var searchTask: Task<Void, Never>?
     @State private var searchMode: SearchMode = .stocks
 
-    enum SearchMode: String, CaseIterable {
-        case stocks = "股票/ETF"
-        case funds = "日本投信"
+    enum SearchMode: CaseIterable {
+        case stocks
+        case funds
+
+        var displayName: String {
+            switch self {
+            case .stocks: return "股票/ETF".localized
+            case .funds: return "日本投信".localized
+            }
+        }
     }
 
     var body: some View {
@@ -40,13 +47,15 @@ struct SymbolSearchView: View {
                 .padding(16)
             }
             .background(AppColors.background)
-            .navigationTitle("搜索标的")
+            .navigationTitle("搜索标的".localized)
             #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
+            .toolbarTitleDisplayMode(.inline)
+            .toolbarBackground(AppColors.background, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
             #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("取消") { dismiss() }
+                    Button("取消".localized) { dismiss() }
                         .foregroundStyle(AppColors.textPrimary)
                 }
             }
@@ -70,7 +79,7 @@ struct SymbolSearchView: View {
             TextField(
                 "",
                 text: $searchText,
-                prompt: Text(searchMode == .stocks ? "输入代码或名称" : "输入基金代码或名称")
+                prompt: Text(searchMode == .stocks ? "输入代码或名称".localized : "输入基金代码或名称".localized)
                     .foregroundStyle(AppColors.textTertiary)
             )
             .font(.system(size: 16))
@@ -121,7 +130,7 @@ struct SymbolSearchView: View {
                         performSearch()
                     }
                 } label: {
-                    Text(mode.rawValue)
+                    Text(mode.displayName)
                         .font(.system(size: 14, weight: .medium))
                         .foregroundStyle(searchMode == mode ? .white : AppColors.textSecondary)
                         .frame(maxWidth: .infinity)
@@ -149,7 +158,7 @@ struct SymbolSearchView: View {
                 .scaleEffect(1.2)
                 .tint(AppColors.profit)
 
-            Text("搜索中...")
+            Text("搜索中...".localized)
                 .font(.system(size: 14))
                 .foregroundStyle(AppColors.textSecondary)
         }
@@ -167,7 +176,7 @@ struct SymbolSearchView: View {
             searchPromptView
         } else {
             VStack(alignment: .leading, spacing: 12) {
-                Text("搜索结果")
+                Text("搜索结果".localized)
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(AppColors.textSecondary)
 
@@ -266,7 +275,7 @@ struct SymbolSearchView: View {
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(searchText.isEmpty ? .orange : AppColors.profit)
 
-                    Text(searchText.isEmpty ? "人气基金" : "搜索结果")
+                    Text(searchText.isEmpty ? "人气基金".localized : "搜索结果".localized)
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(AppColors.textSecondary)
                 }
@@ -359,11 +368,11 @@ struct SymbolSearchView: View {
                 .font(.system(size: 32))
                 .foregroundStyle(AppColors.textTertiary)
 
-            Text("未找到相关标的")
+            Text("未找到相关标的".localized)
                 .font(.system(size: 15))
                 .foregroundStyle(AppColors.textSecondary)
 
-            Text("请尝试其他关键词")
+            Text("请尝试其他关键词".localized)
                 .font(.system(size: 13))
                 .foregroundStyle(AppColors.textTertiary)
         }
@@ -381,11 +390,11 @@ struct SymbolSearchView: View {
                 .font(.system(size: 32))
                 .foregroundStyle(AppColors.textTertiary)
 
-            Text("输入代码或名称开始搜索")
+            Text("输入代码或名称开始搜索".localized)
                 .font(.system(size: 15))
                 .foregroundStyle(AppColors.textSecondary)
 
-            Text("支持美股、日股、港股、A股等")
+            Text("支持美股、日股、港股、A股等".localized)
                 .font(.system(size: 13))
                 .foregroundStyle(AppColors.textTertiary)
         }

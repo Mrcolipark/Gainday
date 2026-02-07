@@ -25,7 +25,7 @@ struct MarketStatusBar: View {
     var body: some View {
         if !marketStates.isEmpty {
             VStack(alignment: .leading, spacing: 8) {
-                Text("市场状态")
+                Text("市场状态".localized)
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(.tertiary)
                     .textCase(.uppercase)

@@ -62,7 +62,9 @@ struct DayDetailSheet: View {
             .background(AppColors.background)
             .navigationTitle(date.fullDateString)
             #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
+            .toolbarTitleDisplayMode(.inline)
+            .toolbarBackground(AppColors.background, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
             #endif
             .task {
                 await loadContextData()
@@ -118,7 +120,7 @@ struct DayDetailSheet: View {
                     }
 
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("当日盈亏")
+                        Text("当日盈亏".localized)
                             .font(.system(size: 13))
                             .foregroundStyle(AppColors.textSecondary)
 
@@ -169,7 +171,7 @@ struct DayDetailSheet: View {
                 DetailStatCell(
                     icon: "chart.bar.fill",
                     iconColor: .blue,
-                    title: "持仓价值",
+                    title: "持仓价值".localized,
                     value: snapshot.totalValue.compactFormatted(),
                     subValue: baseCurrency
                 )
@@ -177,7 +179,7 @@ struct DayDetailSheet: View {
                 DetailStatCell(
                     icon: "banknote.fill",
                     iconColor: .orange,
-                    title: "持仓成本",
+                    title: "持仓成本".localized,
                     value: snapshot.totalCost.compactFormatted(),
                     subValue: baseCurrency
                 )
@@ -185,7 +187,7 @@ struct DayDetailSheet: View {
                 DetailStatCell(
                     icon: "arrow.triangle.2.circlepath.circle.fill",
                     iconColor: snapshot.cumulativePnL >= 0 ? AppColors.profit : AppColors.loss,
-                    title: "累计盈亏",
+                    title: "累计盈亏".localized,
                     value: snapshot.cumulativePnL.compactFormatted(showSign: true),
                     subValue: snapshot.unrealizedPnLPercent.percentFormatted()
                 )
@@ -193,9 +195,9 @@ struct DayDetailSheet: View {
                 DetailStatCell(
                     icon: "percent",
                     iconColor: .purple,
-                    title: "收益率",
+                    title: "收益率".localized,
                     value: snapshot.unrealizedPnLPercent.percentFormatted(),
-                    subValue: "累计"
+                    subValue: "累计".localized
                 )
             }
         }
@@ -225,7 +227,7 @@ struct DayDetailSheet: View {
                         .foregroundStyle(.cyan)
                 }
 
-                Text("与前一日对比")
+                Text("与前一日对比".localized)
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(AppColors.textPrimary)
             }
@@ -233,7 +235,7 @@ struct DayDetailSheet: View {
             HStack(spacing: 16) {
                 // 价值变化
                 ComparisonItem(
-                    title: "价值变化",
+                    title: "价值变化".localized,
                     value: valueDiff.compactFormatted(showSign: true),
                     isPositive: valueDiff >= 0
                 )
@@ -243,7 +245,7 @@ struct DayDetailSheet: View {
 
                 // 盈亏变化
                 ComparisonItem(
-                    title: "盈亏变化",
+                    title: "盈亏变化".localized,
                     value: pnlDiff.compactFormatted(showSign: true),
                     isPositive: pnlDiff >= 0
                 )
@@ -273,7 +275,7 @@ struct DayDetailSheet: View {
                         .foregroundStyle(.indigo)
                 }
 
-                Text("近7日趋势")
+                Text("近7日趋势".localized)
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(AppColors.textPrimary)
 
@@ -282,7 +284,7 @@ struct DayDetailSheet: View {
                 // 连续盈利/亏损天数
                 let streak = calculateStreak()
                 if streak != 0 {
-                    Text(streak > 0 ? "连盈\(streak)天" : "连亏\(abs(streak))天")
+                    Text(streak > 0 ? "\("连盈".localized)\(streak)\("天".localized)" : "\("连亏".localized)\(abs(streak))\("天".localized)")
                         .font(.system(size: 12, weight: .medium))
                         .foregroundStyle(streak > 0 ? AppColors.profit : AppColors.loss)
                         .padding(.horizontal, 8)
@@ -327,13 +329,13 @@ struct DayDetailSheet: View {
                 let profitDays = weekSnapshots.filter { $0.dailyPnL > 0 }.count
                 let lossDays = weekSnapshots.filter { $0.dailyPnL < 0 }.count
 
-                Text("周盈亏: \(totalWeekPnL.compactFormatted(showSign: true))")
+                Text("\("周盈亏".localized): \(totalWeekPnL.compactFormatted(showSign: true))")
                     .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(totalWeekPnL >= 0 ? AppColors.profit : AppColors.loss)
 
                 Spacer()
 
-                Text("盈\(profitDays) / 亏\(lossDays)")
+                Text("\("盈".localized)\(profitDays) / \("亏".localized)\(lossDays)")
                     .font(.system(size: 12))
                     .foregroundStyle(AppColors.textSecondary)
             }
@@ -389,7 +391,7 @@ struct DayDetailSheet: View {
                         .foregroundStyle(.orange)
                 }
 
-                Text("当日波动最大")
+                Text("当日波动最大".localized)
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(AppColors.textPrimary)
 
@@ -468,7 +470,7 @@ struct DayDetailSheet: View {
                         .foregroundStyle(.teal)
                 }
 
-                Text("账户明细")
+                Text("账户明细".localized)
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(AppColors.textPrimary)
             }
@@ -514,7 +516,7 @@ struct DayDetailSheet: View {
             }
 
             if portfolios.isEmpty {
-                Text("暂无账户数据")
+                Text("暂无账户数据".localized)
                     .font(.system(size: 13))
                     .foregroundStyle(AppColors.textTertiary)
                     .frame(maxWidth: .infinity)
@@ -556,11 +558,11 @@ struct DayDetailSheet: View {
             }
 
             VStack(spacing: 8) {
-                Text("该日无数据")
+                Text("该日无数据".localized)
                     .font(.system(size: 18, weight: .semibold))
                     .foregroundStyle(AppColors.textSecondary)
 
-                Text("持仓数据在交易日收盘后自动生成\n周末和节假日不会产生数据")
+                Text("持仓数据在交易日收盘后自动生成".localized)
                     .font(.system(size: 14))
                     .foregroundStyle(AppColors.textTertiary)
                     .multilineTextAlignment(.center)

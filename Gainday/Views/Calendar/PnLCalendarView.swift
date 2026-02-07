@@ -28,12 +28,19 @@ struct PnLCalendarView: View {
     #endif
 
     enum CalendarViewMode: String, CaseIterable {
-        case month = "月视图"
-        case year = "年视图"
+        case month
+        case year
+
+        var displayName: String {
+            switch self {
+            case .month: return "月视图".localized
+            case .year: return "年视图".localized
+            }
+        }
     }
 
     var body: some View {
-        AppNavigationWrapper(title: "盈历") {
+        AppNavigationWrapper(title: "日历".localized) {
             ScrollView {
                 VStack(spacing: 20) {
                     // 品牌标题
@@ -47,7 +54,7 @@ struct PnLCalendarView: View {
                                     endPoint: .trailing
                                 )
                             )
-                        Text("盈历")
+                        Text("盈历".localized)
                             .font(.system(size: 16, weight: .medium))
                             .foregroundStyle(AppColors.textSecondary)
                         Spacer()
@@ -75,7 +82,6 @@ struct PnLCalendarView: View {
                 .padding(.bottom, 30)
             }
             .background(AppColors.background)
-            .toolbarBackground(.hidden, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .automatic) {
                     Button {
@@ -184,7 +190,7 @@ struct PnLCalendarView: View {
                         viewMode = mode
                     }
                 } label: {
-                    Text(mode.rawValue)
+                    Text(mode.displayName)
                         .font(.system(size: 14, weight: .medium))
                         .foregroundStyle(viewMode == mode ? .white : AppColors.textSecondary)
                         .frame(maxWidth: .infinity)
@@ -209,7 +215,7 @@ struct PnLCalendarView: View {
     private var portfolioFilterBar: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 10) {
-                FilterPill(title: "全部", isSelected: selectedPortfolioID == nil) {
+                FilterPill(title: "全部".localized, isSelected: selectedPortfolioID == nil) {
                     withAnimation(.easeInOut(duration: 0.2)) {
                         selectedPortfolioID = nil
                     }
@@ -293,7 +299,7 @@ struct PnLCalendarView: View {
 
                 if let total = monthTotalPnL {
                     HStack(spacing: 6) {
-                        Text("月度收益")
+                        Text("月度收益".localized)
                             .font(.system(size: 12))
                             .foregroundStyle(AppColors.textTertiary)
 
@@ -409,7 +415,7 @@ struct PnLCalendarView: View {
             }
             snapshots = dict
         } catch {
-            ErrorPresenter.shared.showToast("加载日历数据失败", type: .error)
+            ErrorPresenter.shared.showToast("加载失败".localized, type: .error)
         }
     }
 
@@ -508,7 +514,7 @@ private struct FilterPill: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 6) {
-                if isSelected && title != "全部" {
+                if isSelected && title != "全部".localized {
                     Circle()
                         .fill(color)
                         .frame(width: 8, height: 8)
@@ -522,7 +528,7 @@ private struct FilterPill: View {
             .padding(.vertical, 8)
             .background(
                 Capsule()
-                    .fill(isSelected ? (title == "全部" ? AppColors.profit : color) : AppColors.cardSurface)
+                    .fill(isSelected ? (title == "全部".localized ? AppColors.profit : color) : AppColors.cardSurface)
             )
         }
         .buttonStyle(.plain)
@@ -551,12 +557,12 @@ struct ShareSheetView: View {
                     // 分享按钮
                     ShareLink(
                         item: Image(uiImage: image),
-                        preview: SharePreview("投资月报", image: Image(uiImage: image))
+                        preview: SharePreview("投资月报".localized, image: Image(uiImage: image))
                     ) {
                         HStack(spacing: 8) {
                             Image(systemName: "square.and.arrow.up")
                                 .font(.system(size: 16, weight: .semibold))
-                            Text("分享")
+                            Text("分享".localized)
                                 .font(.system(size: 17, weight: .semibold))
                         }
                         .foregroundStyle(.white)
@@ -572,11 +578,13 @@ struct ShareSheetView: View {
                 .padding(.vertical, 20)
             }
             .background(AppColors.background)
-            .navigationTitle("分享月报")
-            .navigationBarTitleDisplayMode(.inline)
+            .navigationTitle("分享月报".localized)
+            .toolbarTitleDisplayMode(.inline)
+            .toolbarBackground(AppColors.background, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("取消") { dismiss() }
+                    Button("取消".localized) { dismiss() }
                         .foregroundStyle(AppColors.textPrimary)
                 }
             }

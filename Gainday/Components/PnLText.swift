@@ -106,7 +106,7 @@ struct PnLPercentText: View {
 
 #Preview {
     ZStack {
-        Color(.systemGroupedBackground).ignoresSafeArea()
+        AppColors.background.ignoresSafeArea()
         VStack(spacing: 20) {
             VStack(spacing: 8) {
                 Text("PnLText").font(.caption).foregroundStyle(.secondary)

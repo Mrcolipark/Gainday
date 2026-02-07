@@ -1,5 +1,4 @@
 import SwiftUI
-import Charts
 
 struct HoldingDetailView: View {
     let holding: Holding
@@ -74,7 +73,9 @@ struct HoldingDetailView: View {
         }
         .background(AppColors.background)
         .navigationTitle(holding.symbol)
-        .navigationBarTitleDisplayMode(.inline)
+        .toolbarTitleDisplayMode(.inline)
+        .toolbarBackground(AppColors.background, for: .navigationBar)
+        .toolbarBackground(.visible, for: .navigationBar)
         .task {
             // 并行加载详细报价和图表
             async let quoteTask: () = loadDetailedQuote()
@@ -180,14 +181,15 @@ struct HoldingDetailView: View {
                     .frame(height: 180)
                     .frame(maxWidth: .infinity)
             } else if !chartData.isEmpty {
-                priceChart
+                let chartIsPositive = (chartData.last?.close ?? 0) >= (chartData.first?.close ?? 0)
+                SimpleLineChart(data: chartData, isPositive: chartIsPositive)
                     .frame(height: 180)
             } else {
                 VStack(spacing: 8) {
                     Image(systemName: "chart.line.uptrend.xyaxis")
                         .font(.system(size: 32))
                         .foregroundStyle(AppColors.textTertiary)
-                    Text("暂无图表数据")
+                    Text("暂无图表数据".localized)
                         .font(.system(size: 14))
                         .foregroundStyle(AppColors.textSecondary)
                 }
@@ -202,57 +204,17 @@ struct HoldingDetailView: View {
         )
     }
 
-    private var priceChart: some View {
-        let chartIsPositive = (chartData.last?.close ?? 0) >= (chartData.first?.close ?? 0)
-        let lineColor = chartIsPositive ? AppColors.profit : AppColors.loss
-
-        return Chart(chartData, id: \.date) { point in
-            LineMark(
-                x: .value("日期", point.date),
-                y: .value("价格", point.close)
-            )
-            .foregroundStyle(lineColor)
-            .lineStyle(StrokeStyle(lineWidth: 2))
-            .interpolationMethod(.monotone)
-
-            AreaMark(
-                x: .value("日期", point.date),
-                y: .value("价格", point.close)
-            )
-            .foregroundStyle(
-                LinearGradient(
-                    colors: [lineColor.opacity(0.3), lineColor.opacity(0.05)],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-            )
-            .interpolationMethod(.monotone)
-        }
-        .chartXAxis(.hidden)
-        .chartYAxis {
-            AxisMarks(position: .trailing) { value in
-                AxisValueLabel {
-                    if let price = value.as(Double.self) {
-                        Text(price.formatted(.number.precision(.fractionLength(0))))
-                            .font(.system(size: 10, design: .monospaced))
-                            .foregroundStyle(AppColors.textTertiary)
-                    }
-                }
-            }
-        }
-    }
-
     // MARK: - 分段选择器
 
     private var tabSelector: some View {
         HStack(spacing: 0) {
-            ForEach(["概览", "持仓", "交易记录"].indices, id: \.self) { index in
+            ForEach(["概览".localized, "持仓".localized, "交易记录".localized].indices, id: \.self) { index in
                 Button {
                     withAnimation(.easeInOut(duration: 0.2)) {
                         selectedTab = index
                     }
                 } label: {
-                    Text(["概览", "持仓", "交易记录"][index])
+                    Text(["概览".localized, "持仓".localized, "交易记录".localized][index])
                         .font(.system(size: 14, weight: .medium))
                         .foregroundStyle(selectedTab == index ? AppColors.textPrimary : AppColors.textSecondary)
                         .frame(maxWidth: .infinity)
@@ -278,26 +240,26 @@ struct HoldingDetailView: View {
         VStack(spacing: 12) {
             // 基本数据
             statsGrid([
-                ("开盘", formatPrice(displayQuote?.regularMarketOpen)),
-                ("昨收", formatPrice(displayQuote?.regularMarketPreviousClose)),
-                ("最高", formatPrice(displayQuote?.regularMarketDayHigh)),
-                ("最低", formatPrice(displayQuote?.regularMarketDayLow)),
+                ("开盘".localized, formatPrice(displayQuote?.regularMarketOpen)),
+                ("昨收".localized, formatPrice(displayQuote?.regularMarketPreviousClose)),
+                ("最高".localized, formatPrice(displayQuote?.regularMarketDayHigh)),
+                ("最低".localized, formatPrice(displayQuote?.regularMarketDayLow)),
             ])
 
             statsGrid([
-                ("成交量", formatVolume(displayQuote?.regularMarketVolume)),
-                ("市值", formatMarketCap(displayQuote?.marketCap)),
-                ("市盈率", formatPE(displayQuote?.trailingPE)),
-                ("股息率", formatDividend(displayQuote?.dividendYield)),
+                ("成交量".localized, formatVolume(displayQuote?.regularMarketVolume)),
+                ("市值".localized, formatMarketCap(displayQuote?.marketCap)),
+                ("市盈率".localized, formatPE(displayQuote?.trailingPE)),
+                ("股息率".localized, formatDividend(displayQuote?.dividendYield)),
             ])
 
             statsGrid([
-                ("每股收益", formatEPS(displayQuote?.epsTrailingTwelveMonths)),
-                ("52周最高", formatPrice(displayQuote?.fiftyTwoWeekHigh)),
+                ("每股收益".localized, formatEPS(displayQuote?.epsTrailingTwelveMonths)),
+                ("52周最高".localized, formatPrice(displayQuote?.fiftyTwoWeekHigh)),
             ])
 
             statsGrid([
-                ("52周最低", formatPrice(displayQuote?.fiftyTwoWeekLow)),
+                ("52周最低".localized, formatPrice(displayQuote?.fiftyTwoWeekLow)),
             ])
         }
     }
@@ -360,13 +322,13 @@ struct HoldingDetailView: View {
         VStack(spacing: 12) {
             // 持仓信息
             VStack(spacing: 0) {
-                positionRow("持有数量", holding.totalQuantity.formattedQuantity)
+                positionRow("持有数量".localized, holding.totalQuantity.formattedQuantity)
                 Divider().background(AppColors.dividerColor)
-                positionRow("平均成本", holding.averageCost.currencyFormatted(code: holding.currency))
+                positionRow("平均成本".localized, holding.averageCost.currencyFormatted(code: holding.currency))
                 Divider().background(AppColors.dividerColor)
-                positionRow("总成本", holding.totalCost.currencyFormatted(code: holding.currency))
+                positionRow("总成本".localized, holding.totalCost.currencyFormatted(code: holding.currency))
                 Divider().background(AppColors.dividerColor)
-                positionRow("持仓价值", (currentPrice * holding.totalQuantity).currencyFormatted(code: holding.currency))
+                positionRow("持仓价值".localized, (currentPrice * holding.totalQuantity).currencyFormatted(code: holding.currency))
             }
             .background(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
@@ -376,7 +338,7 @@ struct HoldingDetailView: View {
             // 盈亏卡片 - 未实现
             if holding.totalQuantity > 0 {
                 pnlCard(
-                    title: "未实现盈亏",
+                    title: "未实现盈亏".localized,
                     amount: unrealizedPnL,
                     percent: unrealizedPnLPercent
                 )
@@ -385,7 +347,7 @@ struct HoldingDetailView: View {
             // 盈亏卡片 - 已实现（如果有卖出交易）
             if holding.realizedPnL != 0 {
                 pnlCard(
-                    title: "已实现盈亏",
+                    title: "已实现盈亏".localized,
                     amount: holding.realizedPnL,
                     percent: nil
                 )
@@ -398,7 +360,7 @@ struct HoldingDetailView: View {
                         Image(systemName: "gift.fill")
                             .font(.system(size: 12))
                             .foregroundStyle(AppColors.profit)
-                        Text("累计股息")
+                        Text("累计股息".localized)
                             .font(.system(size: 13))
                             .foregroundStyle(AppColors.textSecondary)
                     }
@@ -487,7 +449,7 @@ struct HoldingDetailView: View {
     private var totalPnLSummary: some View {
         VStack(spacing: 8) {
             HStack {
-                Text("总收益")
+                Text("总收益".localized)
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(AppColors.textPrimary)
                 Spacer()
@@ -501,13 +463,13 @@ struct HoldingDetailView: View {
             // 收益明细
             VStack(spacing: 6) {
                 if holding.totalQuantity > 0 && unrealizedPnL != 0 {
-                    summaryDetailRow("未实现", unrealizedPnL)
+                    summaryDetailRow("未实现".localized, unrealizedPnL)
                 }
                 if holding.realizedPnL != 0 {
-                    summaryDetailRow("已实现", holding.realizedPnL)
+                    summaryDetailRow("已实现".localized, holding.realizedPnL)
                 }
                 if holding.totalDividends > 0 {
-                    summaryDetailRow("股息", holding.totalDividends)
+                    summaryDetailRow("股息".localized, holding.totalDividends)
                 }
             }
         }
@@ -541,7 +503,7 @@ struct HoldingDetailView: View {
                     Image(systemName: "tray")
                         .font(.system(size: 32))
                         .foregroundStyle(AppColors.textTertiary)
-                    Text("暂无交易记录")
+                    Text("暂无交易记录".localized)
                         .font(.system(size: 15))
                         .foregroundStyle(AppColors.textSecondary)
                 }
@@ -601,7 +563,7 @@ struct HoldingDetailView: View {
 
             // 数量和价格
             VStack(alignment: .trailing, spacing: 2) {
-                Text("\(tx.quantity.formattedQuantity) 股")
+                Text("\(tx.quantity.formattedQuantity)\("股".localized)")
                     .font(.system(size: 14, weight: .medium))
                     .foregroundStyle(AppColors.textPrimary)
 

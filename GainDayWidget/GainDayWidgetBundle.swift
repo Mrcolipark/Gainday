@@ -7,5 +7,7 @@ struct GainDayWidgetBundle: WidgetBundle {
         DailyPnLWidget()
         WeekCalendarWidget()
         MonthCalendarWidget()
+        HoldingsWidget()
+        MarketIndicesWidget()
     }
 }

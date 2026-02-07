@@ -54,20 +54,18 @@ actor NewsService {
     // MARK: - US News (Yahoo Finance RSS)
 
     private func fetchUSNews() async throws -> [NewsItem] {
-        // Yahoo Finance RSS
-        let yahooURL = "https://finance.yahoo.com/news/rssindex"
-
         var allNews: [NewsItem] = []
 
-        // Try Yahoo Finance RSS
+        // Try Yahoo Finance RSS (has media:content images)
+        let yahooURL = "https://finance.yahoo.com/news/rssindex"
         if let yahooNews = try? await parseRSS(url: yahooURL, source: "Yahoo Finance") {
             allNews.append(contentsOf: yahooNews)
         }
 
-        // Try CNBC RSS as backup
-        let cnbcURL = "https://www.cnbc.com/id/100003114/device/rss/rss.html"
-        if let cnbcNews = try? await parseRSS(url: cnbcURL, source: "CNBC") {
-            allNews.append(contentsOf: cnbcNews)
+        // Try BBC Business RSS as backup (has media:thumbnail images)
+        let bbcURL = "https://feeds.bbci.co.uk/news/business/rss.xml"
+        if let bbcNews = try? await parseRSS(url: bbcURL, source: "BBC") {
+            allNews.append(contentsOf: bbcNews)
         }
 
         // Sort by date and return top items
@@ -77,21 +75,15 @@ actor NewsService {
             .map { $0 }
     }
 
-    // MARK: - CN News (新浪财经 RSS)
+    // MARK: - CN News (新浪财经)
 
     private func fetchCNNews() async throws -> [NewsItem] {
         var allNews: [NewsItem] = []
 
-        // 新浪财经 RSS
-        let sinaURL = "https://feed.mix.sina.com.cn/api/roll/get?pageid=153&lid=2516&k=&num=20&page=1&callback="
+        // 新浪财经 API (has images in img/images fields)
+        let sinaURL = "https://feed.mix.sina.com.cn/api/roll/get?pageid=153&lid=2516&k=&num=20&page=1"
         if let sinaNews = try? await fetchSinaNews(url: sinaURL) {
             allNews.append(contentsOf: sinaNews)
-        }
-
-        // 东方财富 API (简化版)
-        let eastmoneyURL = "https://np-listapi.eastmoney.com/comm/web/getNewsByColumns?columns=100&pageSize=15&pageIndex=0"
-        if let emNews = try? await fetchEastMoneyNews(url: eastmoneyURL) {
-            allNews.append(contentsOf: emNews)
         }
 
         return allNews
@@ -100,22 +92,28 @@ actor NewsService {
             .map { $0 }
     }
 
-    // MARK: - HK News
+    // MARK: - HK News (繁體中文 Traditional Chinese sources)
 
     private func fetchHKNews() async throws -> [NewsItem] {
         var allNews: [NewsItem] = []
 
-        // AAStocks RSS
-        let aastocksURL = "http://www.aastocks.com/sc/resources/datafeed/rss/news/aafn-hk-all/0.xml"
-        if let aastocksNews = try? await parseRSS(url: aastocksURL, source: "AAStocks") {
-            allNews.append(contentsOf: aastocksNews)
+        // Yahoo Finance 香港版 RSS (繁體中文，來源 AASTOCKS，有圖片)
+        let yahooHKURL = "https://hk.finance.yahoo.com/rss/topstories"
+        if let yahooNews = try? await parseRSS(url: yahooHKURL, source: "Yahoo 財經") {
+            allNews.append(contentsOf: yahooNews)
         }
 
-        // 如果没有数据，使用 Yahoo HK
-        if allNews.isEmpty {
-            let yahooHKURL = "https://hk.finance.yahoo.com/rss/topfinstories"
-            if let yahooNews = try? await parseRSS(url: yahooHKURL, source: "Yahoo HK") {
-                allNews.append(contentsOf: yahooNews)
+        // SCMP Global Economy (英文，有港股及財經內容，有圖片)
+        let scmpEconURL = "https://www.scmp.com/rss/12/feed"
+        if let scmpNews = try? await parseRSS(url: scmpEconURL, source: "SCMP") {
+            allNews.append(contentsOf: scmpNews)
+        }
+
+        // 如果數據不足，添加 SCMP Hong Kong 新聞
+        if allNews.count < 10 {
+            let scmpHKURL = "https://www.scmp.com/rss/2/feed"
+            if let scmpHKNews = try? await parseRSS(url: scmpHKURL, source: "SCMP HK") {
+                allNews.append(contentsOf: scmpHKNews)
             }
         }
 
@@ -125,21 +123,15 @@ actor NewsService {
             .map { $0 }
     }
 
-    // MARK: - JP News
+    // MARK: - JP News (東洋経済オンライン)
 
     private func fetchJPNews() async throws -> [NewsItem] {
         var allNews: [NewsItem] = []
 
-        // NHK 経済ニュース RSS (most reliable)
-        let nhkURL = "https://www3.nhk.or.jp/rss/news/cat5.xml"
-        if let nhkNews = try? await parseRSS(url: nhkURL, source: "NHK") {
-            allNews.append(contentsOf: nhkNews)
-        }
-
-        // 日経新聞 RSS
-        let nikkeiURL = "https://assets.wor.jp/rss/rdf/nikkei/news.rdf"
-        if let nikkeiNews = try? await parseRSS(url: nikkeiURL, source: "日本経済新聞") {
-            allNews.append(contentsOf: nikkeiNews)
+        // 東洋経済オンライン RSS (日本語財経ニュース、画像あり)
+        let toyokeizaiURL = "https://toyokeizai.net/list/feed/rss"
+        if let toyokeizaiNews = try? await parseRSS(url: toyokeizaiURL, source: "東洋経済") {
+            allNews.append(contentsOf: toyokeizaiNews)
         }
 
         return allNews
@@ -160,12 +152,18 @@ actor NewsService {
         let (data, _) = try await URLSession.shared.data(for: request)
 
         let parser = RSSParser(source: source)
-        return parser.parse(data: data)
+        let items = parser.parse(data: data)
+
+        #if DEBUG
+        print("[NewsService] \(source): \(items.count) items, \(items.filter { $0.imageURL != nil }.count) with images")
+        #endif
+
+        return items
     }
 
     // MARK: - Sina News API
 
-    private func fetchSinaNews(url: String) async throws -> [NewsItem] {
+    private func fetchSinaNews(url: String, sourceOverride: String? = nil) async throws -> [NewsItem] {
         guard let apiURL = URL(string: url) else { return [] }
 
         var request = URLRequest(url: apiURL)
@@ -177,8 +175,19 @@ actor NewsService {
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let result = json["result"] as? [String: Any],
               let dataArray = result["data"] as? [[String: Any]] else {
+            #if DEBUG
+            print("[NewsService] Sina API failed to parse: \(sourceOverride ?? "unknown")")
+            #endif
             return []
         }
+
+        #if DEBUG
+        let imageCount = dataArray.filter { item in
+            (item["img"] as? [String: Any])?["u"] != nil ||
+            (item["images"] as? [[String: Any]])?.first?["u"] != nil
+        }.count
+        print("[NewsService] Sina \(sourceOverride ?? "财经"): \(dataArray.count) items, \(imageCount) with images")
+        #endif
 
         return dataArray.compactMap { item -> NewsItem? in
             guard let title = item["title"] as? String,
@@ -187,18 +196,39 @@ actor NewsService {
             let intro = item["intro"] as? String ?? ""
             let ctime = item["ctime"] as? String ?? ""
 
-            let dateFormatter = DateFormatter()
-            dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
-            let date = dateFormatter.date(from: ctime)
+            // Extract image URL from img or images field
+            var imageURL: String? = nil
+
+            // Try img field first (single image object)
+            if let img = item["img"] as? [String: Any],
+               let imgUrl = img["u"] as? String,
+               !imgUrl.isEmpty {
+                imageURL = imgUrl
+            }
+
+            // If no img, try images array (first image)
+            if imageURL == nil,
+               let images = item["images"] as? [[String: Any]],
+               let firstImage = images.first,
+               let imgUrl = firstImage["u"] as? String,
+               !imgUrl.isEmpty {
+                imageURL = imgUrl
+            }
+
+            // Parse date - ctime is Unix timestamp string
+            var date: Date? = nil
+            if let timestamp = Double(ctime) {
+                date = Date(timeIntervalSince1970: timestamp)
+            }
 
             return NewsItem(
                 id: url,
                 title: title,
                 description: intro,
-                source: "新浪财经",
+                source: sourceOverride ?? "新浪财经",
                 url: url,
                 publishedAt: date,
-                imageURL: nil
+                imageURL: imageURL
             )
         }
     }
@@ -253,6 +283,7 @@ private class RSSParser: NSObject, XMLParserDelegate {
     private var currentDescription = ""
     private var currentLink = ""
     private var currentPubDate = ""
+    private var currentImageURL = ""
     private var isInItem = false
 
     init(source: String) {
@@ -262,25 +293,71 @@ private class RSSParser: NSObject, XMLParserDelegate {
     func parse(data: Data) -> [NewsService.NewsItem] {
         let parser = XMLParser(data: data)
         parser.delegate = self
+        parser.shouldReportNamespacePrefixes = true
+        parser.shouldProcessNamespaces = false  // Keep prefixes in element names
         parser.parse()
         return items
     }
 
     func parser(_ parser: XMLParser, didStartElement elementName: String, namespaceURI: String?, qualifiedName qName: String?, attributes attributeDict: [String : String] = [:]) {
-        currentElement = elementName
+        // elementName already includes prefix when shouldProcessNamespaces = false
+        let name = elementName
+        currentElement = name
 
-        if elementName == "item" || elementName == "entry" {
+
+        if name == "item" || name == "entry" {
             isInItem = true
             currentTitle = ""
             currentDescription = ""
             currentLink = ""
             currentPubDate = ""
+            currentImageURL = ""
         }
 
         // Handle Atom feed links
-        if elementName == "link" && isInItem {
+        if name == "link" && isInItem {
             if let href = attributeDict["href"] {
                 currentLink = href
+            }
+        }
+
+        // Extract image from media:content, media:thumbnail, enclosure, or any element with image URL
+        if isInItem && currentImageURL.isEmpty {
+            // Try both "url" and "URL" (case-insensitive lookup)
+            let url = attributeDict["url"] ?? attributeDict["URL"] ?? attributeDict.first { $0.key.lowercased() == "url" }?.value
+            if let url = url, !url.isEmpty {
+                // Check if this is a media/image-related element by name
+                let lowercaseName = name.lowercased()
+                let isMediaElement = lowercaseName == "media:content" ||
+                                     lowercaseName == "media:thumbnail" ||
+                                     lowercaseName.contains("thumbnail") ||
+                                     lowercaseName.contains("image") ||
+                                     lowercaseName == "enclosure"
+
+                // Or check if the URL looks like an image
+                let looksLikeImage = url.contains("yimg.com") ||
+                                     url.contains("zenfs.com") ||
+                                     url.contains("bbci") ||
+                                     url.contains("ichef") ||
+                                     url.contains("i-scmp.com") ||
+                                     url.contains("scmp.com") ||
+                                     url.contains(".jpg") ||
+                                     url.contains(".jpeg") ||
+                                     url.contains(".png") ||
+                                     url.contains(".gif") ||
+                                     url.contains(".webp") ||
+                                     url.contains("image") ||
+                                     url.contains("creatr") ||
+                                     url.contains("photo")
+
+                // For enclosure, also check the type attribute
+                let enclosureType = attributeDict["type"] ?? ""
+                let isImageEnclosure = name.lowercased() == "enclosure" &&
+                                       (enclosureType.isEmpty || enclosureType.hasPrefix("image/"))
+
+                if isMediaElement || looksLikeImage || isImageEnclosure {
+                    currentImageURL = url
+                }
             }
         }
     }
@@ -308,8 +385,15 @@ private class RSSParser: NSObject, XMLParserDelegate {
     }
 
     func parser(_ parser: XMLParser, didEndElement elementName: String, namespaceURI: String?, qualifiedName qName: String?) {
-        if elementName == "item" || elementName == "entry" {
+        let name = qName ?? elementName
+        if name == "item" || name == "entry" {
             isInItem = false
+
+            // Try to extract image from description HTML if not found elsewhere
+            var imageURL = currentImageURL
+            if imageURL.isEmpty {
+                imageURL = extractImageFromHTML(currentDescription)
+            }
 
             // Clean up HTML tags from description
             let cleanDescription = currentDescription
@@ -327,11 +411,26 @@ private class RSSParser: NSObject, XMLParserDelegate {
                     source: source,
                     url: currentLink.trimmingCharacters(in: .whitespacesAndNewlines),
                     publishedAt: date,
-                    imageURL: nil
+                    imageURL: imageURL.isEmpty ? nil : imageURL
                 )
                 items.append(item)
             }
         }
+    }
+
+    /// Extract image URL from HTML content (img src)
+    private func extractImageFromHTML(_ html: String) -> String {
+        // Pattern to match img src
+        let pattern = #"<img[^>]+src=[\"']([^\"']+)[\"']"#
+        if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) {
+            let range = NSRange(html.startIndex..., in: html)
+            if let match = regex.firstMatch(in: html, range: range) {
+                if let urlRange = Range(match.range(at: 1), in: html) {
+                    return String(html[urlRange])
+                }
+            }
+        }
+        return ""
     }
 
     private func parseDate(_ dateString: String) -> Date? {

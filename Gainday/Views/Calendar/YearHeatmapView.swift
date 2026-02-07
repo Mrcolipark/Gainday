@@ -12,8 +12,12 @@ struct YearHeatmapView: View {
     private let cellSize: CGFloat = 18
     private let cellSpacing: CGFloat = 3
     private let rows = Array(repeating: GridItem(.fixed(18), spacing: 3), count: 7)
-    private let weekdayLabels = ["日", "一", "二", "三", "四", "五", "六"]
-    private let monthLabels = ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"]
+    private var weekdayLabels: [String] {
+        ["周日".localized, "一".localized, "二".localized, "三".localized, "四".localized, "五".localized, "六".localized]
+    }
+    private var monthLabels: [String] {
+        ["1月".localized, "2月".localized, "3月".localized, "4月".localized, "5月".localized, "6月".localized, "7月".localized, "8月".localized, "9月".localized, "10月".localized, "11月".localized, "12月".localized]
+    }
 
     private var yearSnapshots: [DailySnapshot] {
         snapshots.values.filter { $0.date.year == year }
@@ -57,11 +61,11 @@ struct YearHeatmapView: View {
                 }
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("\(String(year))年度")
+                    Text("\(String(year))\("年度".localized)")
                         .font(.system(size: 18, weight: .bold))
                         .foregroundStyle(AppColors.textPrimary)
 
-                    Text("投资热力图")
+                    Text("投资热力图".localized)
                         .font(.system(size: 13))
                         .foregroundStyle(AppColors.textSecondary)
                 }
@@ -71,7 +75,7 @@ struct YearHeatmapView: View {
 
             if !yearSnapshots.isEmpty {
                 VStack(alignment: .trailing, spacing: 2) {
-                    Text("年度收益")
+                    Text("年度收益".localized)
                         .font(.system(size: 11))
                         .foregroundStyle(AppColors.textTertiary)
 
@@ -281,7 +285,7 @@ struct YearHeatmapView: View {
 
     private var colorLegend: some View {
         HStack(spacing: 10) {
-            Text("亏损")
+            Text("亏损".localized)
                 .font(.system(size: 11, weight: .medium))
                 .foregroundStyle(AppColors.loss)
 
@@ -303,7 +307,7 @@ struct YearHeatmapView: View {
                 }
             }
 
-            Text("盈利")
+            Text("盈利".localized)
                 .font(.system(size: 11, weight: .medium))
                 .foregroundStyle(AppColors.profit)
         }
@@ -334,7 +338,7 @@ struct YearHeatmapView: View {
                             .foregroundStyle(.blue)
                     }
 
-                    Text("年度统计")
+                    Text("年度统计".localized)
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(AppColors.textPrimary)
                 }
@@ -351,7 +355,7 @@ struct YearHeatmapView: View {
                 StatCard(
                     icon: "arrow.up.circle.fill",
                     iconColor: AppColors.profit,
-                    title: "盈利天数",
+                    title: "盈利天数".localized,
                     value: "\(profitDays)",
                     valueColor: AppColors.profit
                 )
@@ -359,7 +363,7 @@ struct YearHeatmapView: View {
                 StatCard(
                     icon: "arrow.down.circle.fill",
                     iconColor: AppColors.loss,
-                    title: "亏损天数",
+                    title: "亏损天数".localized,
                     value: "\(lossDays)",
                     valueColor: AppColors.loss
                 )
@@ -367,7 +371,7 @@ struct YearHeatmapView: View {
                 StatCard(
                     icon: "target",
                     iconColor: winRate >= 50 ? AppColors.profit : AppColors.loss,
-                    title: "胜率",
+                    title: "胜率".localized,
                     value: String(format: "%.1f%%", winRate),
                     valueColor: winRate >= 50 ? AppColors.profit : AppColors.loss
                 )
@@ -375,7 +379,7 @@ struct YearHeatmapView: View {
                 StatCard(
                     icon: "chart.line.uptrend.xyaxis",
                     iconColor: .blue,
-                    title: "交易天数",
+                    title: "交易天数".localized,
                     value: "\(totalDays)",
                     valueColor: AppColors.textPrimary
                 )
@@ -383,7 +387,7 @@ struct YearHeatmapView: View {
                 StatCard(
                     icon: "arrow.up.right.circle.fill",
                     iconColor: AppColors.profit,
-                    title: "最大盈利",
+                    title: "最大盈利".localized,
                     value: maxProfit.compactFormatted(showSign: true),
                     valueColor: AppColors.profit
                 )
@@ -391,7 +395,7 @@ struct YearHeatmapView: View {
                 StatCard(
                     icon: "arrow.down.right.circle.fill",
                     iconColor: AppColors.loss,
-                    title: "最大亏损",
+                    title: "最大亏损".localized,
                     value: maxLoss.compactFormatted(showSign: true),
                     valueColor: AppColors.loss
                 )

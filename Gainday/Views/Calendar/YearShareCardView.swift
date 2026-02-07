@@ -20,7 +20,9 @@ struct YearShareCardView: View {
 
     private let cellSize: CGFloat = 8
     private let cellSpacing: CGFloat = 2
-    private let monthLabels = ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"]
+    private var monthLabels: [String] {
+        ["1月".localized, "2月".localized, "3月".localized, "4月".localized, "5月".localized, "6月".localized, "7月".localized, "8月".localized, "9月".localized, "10月".localized, "11月".localized, "12月".localized]
+    }
 
     private var yearSnapshots: [DailySnapshot] {
         snapshots.values.filter { $0.date.year == year }
@@ -60,10 +62,10 @@ struct YearShareCardView: View {
                 summarySection
 
                 // 上半年热力图 (1-6月)
-                halfYearHeatmap(months: 0..<6, title: "上半年")
+                halfYearHeatmap(months: 0..<6, title: "上半年".localized)
 
                 // 下半年热力图 (7-12月)
-                halfYearHeatmap(months: 6..<12, title: "下半年")
+                halfYearHeatmap(months: 6..<12, title: "下半年".localized)
 
                 // 颜色图例
                 colorLegend
@@ -81,11 +83,11 @@ struct YearShareCardView: View {
 
     private var headerSection: some View {
         VStack(spacing: 4) {
-            Text("\(String(year))年度")
+            Text("\(String(year))\("年度".localized)")
                 .font(.system(size: 28, weight: .bold, design: .rounded))
                 .foregroundColor(textWhite)
 
-            Text("投资年报")
+            Text("投资年报".localized)
                 .font(.system(size: 14, weight: .medium))
                 .foregroundColor(textWhite.opacity(0.6))
         }
@@ -97,7 +99,7 @@ struct YearShareCardView: View {
         HStack(spacing: 12) {
             // 年度盈亏
             VStack(alignment: .leading, spacing: 4) {
-                Text("年度盈亏")
+                Text("年度盈亏".localized)
                     .font(.system(size: 11, weight: .medium))
                     .foregroundColor(textWhite.opacity(0.5))
 
@@ -111,7 +113,7 @@ struct YearShareCardView: View {
 
             // 胜率
             VStack(alignment: .leading, spacing: 4) {
-                Text("交易统计")
+                Text("交易统计".localized)
                     .font(.system(size: 11, weight: .medium))
                     .foregroundColor(textWhite.opacity(0.5))
 
@@ -130,7 +132,7 @@ struct YearShareCardView: View {
                             .font(.system(size: 14, weight: .bold, design: .rounded))
                             .foregroundColor(lossColor)
                     }
-                    Text("胜率\(String(format: "%.0f%%", winRate))")
+                    Text("\("胜率".localized)\(String(format: "%.0f%%", winRate))")
                         .font(.system(size: 11, weight: .medium))
                         .foregroundColor(textWhite.opacity(0.6))
                 }
@@ -216,7 +218,7 @@ struct YearShareCardView: View {
 
     private var colorLegend: some View {
         HStack(spacing: 8) {
-            Text("亏损")
+            Text("亏损".localized)
                 .font(.system(size: 10, weight: .medium))
                 .foregroundColor(lossColor)
 
@@ -228,7 +230,7 @@ struct YearShareCardView: View {
                 }
             }
 
-            Text("盈利")
+            Text("盈利".localized)
                 .font(.system(size: 10, weight: .medium))
                 .foregroundColor(profitColor)
         }
@@ -252,7 +254,7 @@ struct YearShareCardView: View {
                 Text("GainDay")
                     .font(.system(size: 13, weight: .bold, design: .rounded))
                     .foregroundColor(textWhite)
-                Text("盈历 - 投资日历")
+                Text("盈历 - 投资日历".localized)
                     .font(.system(size: 9, weight: .medium))
                     .foregroundColor(textWhite.opacity(0.5))
             }

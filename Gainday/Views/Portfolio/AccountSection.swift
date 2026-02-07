@@ -48,7 +48,7 @@ struct AccountSection: View {
                         .foregroundStyle(.secondary)
                     Text("·")
                         .foregroundStyle(.secondary.opacity(0.5))
-                    Text("\(portfolio.holdings.count) 只持仓")
+                    Text("\(portfolio.holdings.count) \("只持仓".localized)")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }

@@ -10,7 +10,9 @@ struct ShareCardView: View {
     let baseCurrency: String
     let format: ShareImageService.ShareFormat
 
-    private let weekdayLabels = ["日", "一", "二", "三", "四", "五", "六"]
+    private var weekdayLabels: [String] {
+        ["周日".localized, "一".localized, "二".localized, "三".localized, "四".localized, "五".localized, "六".localized]
+    }
 
     // 使用固定颜色确保渲染一致性
     private let bgGradientStart = Color(red: 0.08, green: 0.08, blue: 0.12)
@@ -108,7 +110,7 @@ struct ShareCardView: View {
                 .font(.system(size: 28, weight: .bold, design: .rounded))
                 .foregroundColor(textWhite)
 
-            Text("投资月报")
+            Text("投资月报".localized)
                 .font(.system(size: 14, weight: .medium, design: .rounded))
                 .foregroundColor(textWhite.opacity(0.6))
         }
@@ -120,7 +122,7 @@ struct ShareCardView: View {
         HStack(spacing: 12) {
             // 本月盈亏
             VStack(alignment: .leading, spacing: 4) {
-                Text("本月盈亏")
+                Text("本月盈亏".localized)
                     .font(.system(size: 11, weight: .medium))
                     .foregroundColor(textWhite.opacity(0.5))
 
@@ -141,7 +143,7 @@ struct ShareCardView: View {
 
             // 胜率统计
             VStack(alignment: .leading, spacing: 4) {
-                Text("交易统计")
+                Text("交易统计".localized)
                     .font(.system(size: 11, weight: .medium))
                     .foregroundColor(textWhite.opacity(0.5))
 
@@ -162,7 +164,7 @@ struct ShareCardView: View {
                     }
                 }
 
-                Text(String(format: "胜率 %.0f%%", winRate))
+                Text("\("胜率".localized) \(String(format: "%.0f%%", winRate))")
                     .font(.system(size: 12, weight: .semibold, design: .monospaced))
                     .foregroundColor(textWhite.opacity(0.7))
             }
@@ -282,7 +284,7 @@ struct ShareCardView: View {
                 Text("GainDay")
                     .font(.system(size: 14, weight: .bold, design: .rounded))
                     .foregroundColor(textWhite)
-                Text("盈历 - 投资日历")
+                Text("盈历 - 投资日历".localized)
                     .font(.system(size: 10, weight: .medium))
                     .foregroundColor(textWhite.opacity(0.5))
             }

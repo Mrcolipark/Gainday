@@ -54,7 +54,7 @@ struct EmptyStateView: View {
 struct LoadingStateView: View {
     let message: String
 
-    init(_ message: String = "加载中...") {
+    init(_ message: String = "加载中...".localized) {
         self.message = message
     }
 
@@ -85,7 +85,7 @@ struct ErrorStateView: View {
                 .font(.system(size: 40))
                 .foregroundStyle(.orange)
 
-            Text("加载失败")
+            Text("加载失败".localized)
                 .font(.headline)
                 .foregroundStyle(.primary)
 
@@ -98,7 +98,7 @@ struct ErrorStateView: View {
                 Button(action: retryAction) {
                     HStack(spacing: 6) {
                         Image(systemName: "arrow.clockwise")
-                        Text("重试")
+                        Text("重试".localized)
                     }
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(.blue)

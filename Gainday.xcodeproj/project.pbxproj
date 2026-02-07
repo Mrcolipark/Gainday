@@ -6,6 +6,12 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		6DD667BA2F3601C8008F91CC /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6DD667B92F3601C8008F91CC /* WidgetKit.framework */; };
+		6DD667BC2F3601C8008F91CC /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6DD667BB2F3601C8008F91CC /* SwiftUI.framework */; };
+		6DD667C92F3601C9008F91CC /* GaindayminiExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 6DD667B72F3601C8008F91CC /* GaindayminiExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		6D0F67CC2F336C4900D5CE4A /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -21,12 +27,36 @@
 			remoteGlobalIDString = 6D0F67BC2F336C4700D5CE4A;
 			remoteInfo = Gainday;
 		};
+		6DD667C72F3601C9008F91CC /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 6D0F67B52F336C4700D5CE4A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 6DD667B62F3601C8008F91CC;
+			remoteInfo = GaindayminiExtension;
+		};
 /* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		6DD667CE2F3601C9008F91CC /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				6DD667C92F3601C9008F91CC /* GaindayminiExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		6D0F67BD2F336C4700D5CE4A /* Gainday.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Gainday.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		6D0F67CB2F336C4900D5CE4A /* GaindayTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = GaindayTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		6D0F67D52F336C4900D5CE4A /* GaindayUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = GaindayUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		6DD667B72F3601C8008F91CC /* GaindayminiExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = GaindayminiExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		6DD667B92F3601C8008F91CC /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
+		6DD667BB2F3601C8008F91CC /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -46,6 +76,13 @@
 			);
 			target = 6D0F67D42F336C4900D5CE4A /* GaindayUITests */;
 		};
+		6DD667CD2F3601C9008F91CC /* Exceptions for "Gaindaymini" folder in "GaindayminiExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 6DD667B62F3601C8008F91CC /* GaindayminiExtension */;
+		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -61,6 +98,14 @@
 				6D0F68862F348EF900D5CE4A /* Exceptions for "GaindayTests" folder in "GaindayUITests" target */,
 			);
 			path = GaindayTests;
+			sourceTree = "<group>";
+		};
+		6DD667BD2F3601C8008F91CC /* Gaindaymini */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				6DD667CD2F3601C9008F91CC /* Exceptions for "Gaindaymini" folder in "GaindayminiExtension" target */,
+			);
+			path = Gaindaymini;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -87,6 +132,15 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		6DD667B42F3601C8008F91CC /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				6DD667BC2F3601C8008F91CC /* SwiftUI.framework in Frameworks */,
+				6DD667BA2F3601C8008F91CC /* WidgetKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -95,6 +149,8 @@
 			children = (
 				6D0F67BF2F336C4700D5CE4A /* Gainday */,
 				6D0F67CE2F336C4900D5CE4A /* GaindayTests */,
+				6DD667BD2F3601C8008F91CC /* Gaindaymini */,
+				6DD667B82F3601C8008F91CC /* Frameworks */,
 				6D0F67BE2F336C4700D5CE4A /* Products */,
 			);
 			sourceTree = "<group>";
@@ -105,8 +161,18 @@
 				6D0F67BD2F336C4700D5CE4A /* Gainday.app */,
 				6D0F67CB2F336C4900D5CE4A /* GaindayTests.xctest */,
 				6D0F67D52F336C4900D5CE4A /* GaindayUITests.xctest */,
+				6DD667B72F3601C8008F91CC /* GaindayminiExtension.appex */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		6DD667B82F3601C8008F91CC /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				6DD667B92F3601C8008F91CC /* WidgetKit.framework */,
+				6DD667BB2F3601C8008F91CC /* SwiftUI.framework */,
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -119,10 +185,12 @@
 				6D0F67B92F336C4700D5CE4A /* Sources */,
 				6D0F67BA2F336C4700D5CE4A /* Frameworks */,
 				6D0F67BB2F336C4700D5CE4A /* Resources */,
+				6DD667CE2F3601C9008F91CC /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				6DD667C82F3601C9008F91CC /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				6D0F67BF2F336C4700D5CE4A /* Gainday */,
@@ -177,6 +245,28 @@
 			productReference = 6D0F67D52F336C4900D5CE4A /* GaindayUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
+		6DD667B62F3601C8008F91CC /* GaindayminiExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 6DD667CA2F3601C9008F91CC /* Build configuration list for PBXNativeTarget "GaindayminiExtension" */;
+			buildPhases = (
+				6DD667B32F3601C8008F91CC /* Sources */,
+				6DD667B42F3601C8008F91CC /* Frameworks */,
+				6DD667B52F3601C8008F91CC /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				6DD667BD2F3601C8008F91CC /* Gaindaymini */,
+			);
+			name = GaindayminiExtension;
+			packageProductDependencies = (
+			);
+			productName = GaindayminiExtension;
+			productReference = 6DD667B72F3601C8008F91CC /* GaindayminiExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -184,7 +274,7 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
-				LastSwiftUpdateCheck = 1640;
+				LastSwiftUpdateCheck = 2620;
 				LastUpgradeCheck = 1640;
 				TargetAttributes = {
 					6D0F67BC2F336C4700D5CE4A = {
@@ -197,6 +287,9 @@
 					6D0F67D42F336C4900D5CE4A = {
 						CreatedOnToolsVersion = 16.4;
 						TestTargetID = 6D0F67BC2F336C4700D5CE4A;
+					};
+					6DD667B62F3601C8008F91CC = {
+						CreatedOnToolsVersion = 26.2;
 					};
 				};
 			};
@@ -220,6 +313,7 @@
 				6D0F67BC2F336C4700D5CE4A /* Gainday */,
 				6D0F67CA2F336C4900D5CE4A /* GaindayTests */,
 				6D0F67D42F336C4900D5CE4A /* GaindayUITests */,
+				6DD667B62F3601C8008F91CC /* GaindayminiExtension */,
 			);
 		};
 /* End PBXProject section */
@@ -240,6 +334,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		6D0F67D32F336C4900D5CE4A /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		6DD667B52F3601C8008F91CC /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -270,6 +371,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		6DD667B32F3601C8008F91CC /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -282,6 +390,11 @@
 			isa = PBXTargetDependency;
 			target = 6D0F67BC2F336C4700D5CE4A /* Gainday */;
 			targetProxy = 6D0F67D62F336C4900D5CE4A /* PBXContainerItemProxy */;
+		};
+		6DD667C82F3601C9008F91CC /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 6DD667B62F3601C8008F91CC /* GaindayminiExtension */;
+			targetProxy = 6DD667C72F3601C9008F91CC /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -414,6 +527,8 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Gainday;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.finance";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -433,10 +548,11 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
 				SDKROOT = auto;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2,7";
+				TARGETED_DEVICE_FAMILY = "1,2";
 				XROS_DEPLOYMENT_TARGET = 2.5;
 			};
 			name = Debug;
@@ -453,6 +569,8 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Gainday;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.finance";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -472,10 +590,11 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
 				SDKROOT = auto;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2,7";
+				TARGETED_DEVICE_FAMILY = "1,2";
 				XROS_DEPLOYMENT_TARGET = 2.5;
 			};
 			name = Release;
@@ -570,6 +689,79 @@
 			};
 			name = Release;
 		};
+		6DD667CB2F3601C9008F91CC /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = B67FLR5YCR;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Gaindaymini/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Gaindaymini;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = dana.Gainday.Gaindaymini;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = xros;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = "$(AVAILABLE_PLATFORMS)";
+				SUPPORTS_MACCATALYST = YES;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2,3,4,6,7";
+				XROS_DEPLOYMENT_TARGET = 26.2;
+			};
+			name = Debug;
+		};
+		6DD667CC2F3601C9008F91CC /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = B67FLR5YCR;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Gaindaymini/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Gaindaymini;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = dana.Gainday.Gaindaymini;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = xros;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = "$(AVAILABLE_PLATFORMS)";
+				SUPPORTS_MACCATALYST = YES;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2,3,4,6,7";
+				VALIDATE_PRODUCT = YES;
+				XROS_DEPLOYMENT_TARGET = 26.2;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -605,6 +797,15 @@
 			buildConfigurations = (
 				6D0F67E62F336C4900D5CE4A /* Debug */,
 				6D0F67E72F336C4900D5CE4A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		6DD667CA2F3601C9008F91CC /* Build configuration list for PBXNativeTarget "GaindayminiExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				6DD667CB2F3601C9008F91CC /* Debug */,
+				6DD667CC2F3601C9008F91CC /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

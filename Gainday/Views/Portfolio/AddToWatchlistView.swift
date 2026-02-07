@@ -31,11 +31,13 @@ struct AddToWatchlistView: View {
                 .padding()
             }
             .background(AppColors.background)
-            .navigationTitle("添加标的")
-            .navigationBarTitleDisplayMode(.inline)
+            .navigationTitle("添加标的".localized)
+            .toolbarTitleDisplayMode(.inline)
+            .toolbarBackground(AppColors.background, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("取消") { dismiss() }
+                    Button("取消".localized) { dismiss() }
                         .foregroundStyle(AppColors.textPrimary)
                 }
             }
@@ -56,7 +58,7 @@ struct AddToWatchlistView: View {
             TextField(
                 "",
                 text: $searchText,
-                prompt: Text("搜索股票代码或名称")
+                prompt: Text("搜索股票代码或名称".localized)
                     .foregroundStyle(AppColors.textTertiary)
             )
             .font(.system(size: 16))
@@ -99,7 +101,7 @@ struct AddToWatchlistView: View {
 
     private var searchResultsList: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("搜索结果")
+            Text("搜索结果".localized)
                 .font(.system(size: 13, weight: .medium))
                 .foregroundStyle(AppColors.textSecondary)
 
@@ -171,7 +173,7 @@ struct AddToWatchlistView: View {
             Image(systemName: "magnifyingglass")
                 .font(.system(size: 32))
                 .foregroundStyle(AppColors.textTertiary)
-            Text("未找到相关标的")
+            Text("未找到相关标的".localized)
                 .font(.system(size: 15))
                 .foregroundStyle(AppColors.textSecondary)
         }
@@ -188,7 +190,7 @@ struct AddToWatchlistView: View {
     private var trendingStocksList: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("热门标的")
+                Text("热门标的".localized)
                     .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(AppColors.textSecondary)
 
@@ -281,14 +283,14 @@ struct AddToWatchlistView: View {
                 ProgressView()
                     .scaleEffect(1.2)
                     .tint(AppColors.profit)
-                Text("加载热门标的...")
+                Text("加载热门标的...".localized)
                     .font(.system(size: 15))
                     .foregroundStyle(AppColors.textSecondary)
             } else {
                 Image(systemName: "chart.line.uptrend.xyaxis")
                     .font(.system(size: 32))
                     .foregroundStyle(AppColors.textTertiary)
-                Text("暂无热门标的")
+                Text("暂无热门标的".localized)
                     .font(.system(size: 15))
                     .foregroundStyle(AppColors.textSecondary)
             }

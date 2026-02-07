@@ -224,19 +224,19 @@ struct HoldingRow: View {
             if hasAnyMetric {
                 HStack(spacing: 0) {
                     if let volume = quote?.regularMarketVolume, volume > 0 {
-                        metricItem(label: "成交量", value: volume.compactFormatted())
+                        metricItem(label: "成交量".localized, value: volume.compactFormatted())
                         Spacer()
                     }
                     if let high = quote?.regularMarketDayHigh {
-                        metricItem(label: "最高", value: high.compactCurrencyFormatted(code: holding.currency))
+                        metricItem(label: "最高".localized, value: high.compactCurrencyFormatted(code: holding.currency))
                         Spacer()
                     }
                     if let low = quote?.regularMarketDayLow {
-                        metricItem(label: "最低", value: low.compactCurrencyFormatted(code: holding.currency))
+                        metricItem(label: "最低".localized, value: low.compactCurrencyFormatted(code: holding.currency))
                         Spacer()
                     }
                     if let high52 = quote?.fiftyTwoWeekHigh {
-                        metricItem(label: "52周高", value: high52.compactCurrencyFormatted(code: holding.currency))
+                        metricItem(label: "52周高".localized, value: high52.compactCurrencyFormatted(code: holding.currency))
                     }
                 }
                 .padding(12)
@@ -277,7 +277,7 @@ struct HoldingRow: View {
                         .font(.system(size: 17, weight: .semibold))
                         .foregroundStyle(AppColors.textPrimary)
 
-                    Text("\(holding.totalQuantity.formattedQuantity)股")
+                    Text("\(holding.totalQuantity.formattedQuantity)\("股".localized)")
                         .font(.system(size: 13))
                         .foregroundStyle(AppColors.textSecondary)
                 }
@@ -305,14 +305,14 @@ struct HoldingRow: View {
 
             // 底部统计 - 深色背景
             HStack(spacing: 0) {
-                statItem(label: "现价", value: displayPrice.compactCurrencyFormatted(code: holding.currency))
+                statItem(label: "现价".localized, value: displayPrice.compactCurrencyFormatted(code: holding.currency))
                 Spacer()
-                statItem(label: "成本", value: holding.averageCost.compactCurrencyFormatted(code: holding.currency))
+                statItem(label: "成本".localized, value: holding.averageCost.compactCurrencyFormatted(code: holding.currency))
                 Spacer()
-                statItem(label: "盈亏", value: unrealizedPnL.compactCurrencyFormatted(code: holding.currency, showSign: true), color: totalPnLPositive ? AppColors.profit : AppColors.loss)
+                statItem(label: "盈亏".localized, value: unrealizedPnL.compactCurrencyFormatted(code: holding.currency, showSign: true), color: totalPnLPositive ? AppColors.profit : AppColors.loss)
                 Spacer()
                 statItem(
-                    label: "今日",
+                    label: "今日".localized,
                     value: String(format: "%+.2f%%", dailyChangePercent),
                     color: isPositive ? AppColors.profit : AppColors.loss
                 )

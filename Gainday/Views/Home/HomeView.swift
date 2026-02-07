@@ -30,7 +30,7 @@ struct HomeView: View {
                                     endPoint: .trailing
                                 )
                             )
-                        Text("盈历")
+                        Text("盈历".localized)
                             .font(.system(size: 16, weight: .medium))
                             .foregroundStyle(AppColors.textSecondary)
                         Spacer()
@@ -168,7 +168,7 @@ struct HomeView: View {
                     Text(portfolio.name)
                         .font(.system(size: 17, weight: .semibold))
                         .foregroundStyle(AppColors.textPrimary)
-                    Text("\(portfolio.holdings.count) 持仓")
+                    Text("\(portfolio.holdings.count) \("持仓".localized)")
                         .font(.system(size: 13))
                         .foregroundStyle(AppColors.textSecondary)
                 }
@@ -267,11 +267,11 @@ struct HomeView: View {
     // MARK: - 后备空状态
 
     private var fallbackAddButtonTitle: String {
-        viewModel.displayMode == .holdings ? "添加持仓" : "添加标的"
+        viewModel.displayMode == .holdings ? "添加持仓".localized : "添加标的".localized
     }
 
     private var fallbackEmptyStateTitle: String {
-        viewModel.displayMode == .holdings ? "暂无持仓" : "暂无标的"
+        viewModel.displayMode == .holdings ? "暂无持仓".localized : "暂无标的".localized
     }
 
     private func showAddView(for portfolio: Portfolio) {
@@ -342,11 +342,11 @@ struct HomeView: View {
                 .foregroundStyle(AppColors.textTertiary)
 
             VStack(spacing: 8) {
-                Text("开始您的投资之旅")
+                Text("开始您的投资之旅".localized)
                     .font(.system(size: 20, weight: .semibold))
                     .foregroundStyle(AppColors.textPrimary)
 
-                Text("在设置中添加您的第一个账户")
+                Text("在设置中添加您的第一个账户".localized)
                     .font(.system(size: 15))
                     .foregroundStyle(AppColors.textSecondary)
             }
@@ -366,7 +366,7 @@ struct HomeView: View {
         VStack(spacing: 12) {
             // 月度盈亏
             VStack(alignment: .leading, spacing: 10) {
-                Text("月度盈亏")
+                Text("月度盈亏".localized)
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(AppColors.textPrimary)
 
@@ -383,7 +383,7 @@ struct HomeView: View {
             // 累计盈亏
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
-                    Text("累计盈亏")
+                    Text("累计盈亏".localized)
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(AppColors.textPrimary)
                     Spacer()

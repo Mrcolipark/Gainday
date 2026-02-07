@@ -7,7 +7,9 @@ struct CalendarMonthView: View {
     let onDateTap: (Date) -> Void
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 6), count: 7)
-    private let weekdayLabels = ["日", "一", "二", "三", "四", "五", "六"]
+    private var weekdayLabels: [String] {
+        ["周日".localized, "一".localized, "二".localized, "三".localized, "四".localized, "五".localized, "六".localized]
+    }
 
     var body: some View {
         VStack(spacing: 12) {
@@ -78,7 +80,7 @@ struct CalendarMonthView: View {
         HStack(spacing: 0) {
             // 亏损
             HStack(spacing: 6) {
-                Text("亏损")
+                Text("亏损".localized)
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(AppColors.loss)
 
@@ -99,7 +101,7 @@ struct CalendarMonthView: View {
                     .fill(AppColors.elevatedSurface)
                     .frame(width: 16, height: 16)
 
-                Text("无数据")
+                Text("无数据".localized)
                     .font(.system(size: 11))
                     .foregroundStyle(AppColors.textTertiary)
             }
@@ -116,7 +118,7 @@ struct CalendarMonthView: View {
                     }
                 }
 
-                Text("盈利")
+                Text("盈利".localized)
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(AppColors.profit)
             }

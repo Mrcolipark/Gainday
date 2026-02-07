@@ -10,11 +10,14 @@ struct PortfolioSectionView: View {
     let onToggle: () -> Void
     var onRefresh: (() -> Void)?
 
+    @Environment(\.modelContext) private var modelContext
     @State private var animateIn = false
     @State private var selectedHolding: Holding?
     @State private var showHoldingDetail = false
     @State private var showAddTransaction = false
     @State private var showAddToWatchlist = false
+    @State private var holdingToDelete: Holding?
+    @State private var showDeleteConfirm = false
 
     private var portfolio: Portfolio {
         portfolioPnL.portfolio
@@ -69,6 +72,44 @@ struct PortfolioSectionView: View {
         }) {
             AddToWatchlistView(portfolio: portfolio)
         }
+        .alert("确认删除".localized, isPresented: $showDeleteConfirm) {
+            Button("取消".localized, role: .cancel) {
+                holdingToDelete = nil
+            }
+            Button("删除".localized, role: .destructive) {
+                if let holding = holdingToDelete {
+                    deleteHolding(holding)
+                }
+            }
+        } message: {
+            if let holding = holdingToDelete {
+                Text("确定要删除 \(holding.symbol) 吗？所有交易记录也将被删除。")
+            }
+        }
+    }
+
+    // MARK: - 删除持仓
+
+    private func deleteHolding(_ holding: Holding) {
+        // 删除所有关联的交易记录
+        for transaction in holding.transactions {
+            modelContext.delete(transaction)
+        }
+        // 从账户中移除
+        if let index = portfolio.holdings.firstIndex(where: { $0.id == holding.id }) {
+            portfolio.holdings.remove(at: index)
+        }
+        // 删除持仓
+        modelContext.delete(holding)
+
+        do {
+            try modelContext.save()
+            onRefresh?()
+        } catch {
+            print("删除持仓失败: \(error)")
+        }
+
+        holdingToDelete = nil
     }
 
     /// 根据当前模式显示添加视图
@@ -95,7 +136,7 @@ struct PortfolioSectionView: View {
                     .font(.system(size: 17, weight: .semibold))
                     .foregroundStyle(AppColors.textPrimary)
 
-                Text("\(portfolio.holdings.count) 持仓")
+                Text("\(portfolio.holdings.count) \("持仓".localized)")
                     .font(.system(size: 13))
                     .foregroundStyle(AppColors.textSecondary)
             }
@@ -161,29 +202,37 @@ struct PortfolioSectionView: View {
             if portfolioPnL.holdingPnLs.isEmpty {
                 emptyHoldingsState
             } else {
-                ForEach(portfolioPnL.holdingPnLs, id: \.holding.id) { holdingPnL in
-                    NavigationLink {
-                        HoldingDetailView(
-                            holding: holdingPnL.holding,
-                            quote: quotes[holdingPnL.holding.symbol]
-                        )
-                    } label: {
-                        HoldingRow(
-                            holding: holdingPnL.holding,
-                            quote: quotes[holdingPnL.holding.symbol],
-                            displayMode: .basic,
-                            showPercent: showPercent
-                        )
-                    }
-                    .buttonStyle(.plain)
-
-                    if holdingPnL.holding.id != portfolioPnL.holdingPnLs.last?.holding.id {
-                        Rectangle()
-                            .fill(AppColors.dividerColor)
-                            .frame(height: 1)
-                            .padding(.leading, 16)
+                List {
+                    ForEach(portfolioPnL.holdingPnLs, id: \.holding.id) { holdingPnL in
+                        NavigationLink {
+                            HoldingDetailView(
+                                holding: holdingPnL.holding,
+                                quote: quotes[holdingPnL.holding.symbol]
+                            )
+                        } label: {
+                            HoldingRow(
+                                holding: holdingPnL.holding,
+                                quote: quotes[holdingPnL.holding.symbol],
+                                displayMode: .basic,
+                                showPercent: showPercent
+                            )
+                        }
+                        .listRowInsets(EdgeInsets(top: 0, leading: 4, bottom: 0, trailing: 4))
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                            Button(role: .destructive) {
+                                holdingToDelete = holdingPnL.holding
+                                showDeleteConfirm = true
+                            } label: {
+                                Label("删除".localized, systemImage: "trash")
+                            }
+                        }
                     }
                 }
+                .listStyle(.plain)
+                .scrollDisabled(true)
+                .frame(height: CGFloat(portfolioPnL.holdingPnLs.count) * 56)
 
                 addHoldingButton
                     .padding(.top, 8)
@@ -197,6 +246,8 @@ struct PortfolioSectionView: View {
 
     private var detailsModeContent: some View {
         let holdings = portfolioPnL.holdingPnLs.map(\.holding)
+        // 计算表格高度：表头36 + 分隔线1 + 每行(44+1分隔线) - 最后一行无分隔线
+        let tableHeight: CGFloat = 36 + 1 + CGFloat(holdings.count) * 45 - (holdings.isEmpty ? 0 : 1)
 
         return VStack(spacing: 8) {
             if holdings.isEmpty {
@@ -209,9 +260,13 @@ struct PortfolioSectionView: View {
                     onHoldingTap: { holding in
                         selectedHolding = holding
                         showHoldingDetail = true
+                    },
+                    onHoldingDelete: { holding in
+                        holdingToDelete = holding
+                        showDeleteConfirm = true
                     }
                 )
-                .frame(minHeight: CGFloat(holdings.count) * 56 + 48)
+                .frame(height: tableHeight)
                 .clipShape(RoundedRectangle(cornerRadius: 12))
 
                 addHoldingButton
@@ -228,13 +283,29 @@ struct PortfolioSectionView: View {
             if portfolioPnL.holdingPnLs.isEmpty {
                 emptyHoldingsState
             } else {
-                ForEach(portfolioPnL.holdingPnLs, id: \.holding.id) { holdingPnL in
-                    ExpandableHoldingRow(
-                        holding: holdingPnL.holding,
-                        quote: quotes[holdingPnL.holding.symbol],
-                        showPercent: showPercent
-                    )
+                List {
+                    ForEach(portfolioPnL.holdingPnLs, id: \.holding.id) { holdingPnL in
+                        ExpandableHoldingRow(
+                            holding: holdingPnL.holding,
+                            quote: quotes[holdingPnL.holding.symbol],
+                            showPercent: showPercent
+                        )
+                        .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                            Button(role: .destructive) {
+                                holdingToDelete = holdingPnL.holding
+                                showDeleteConfirm = true
+                            } label: {
+                                Label("删除".localized, systemImage: "trash")
+                            }
+                        }
+                    }
                 }
+                .listStyle(.plain)
+                .scrollDisabled(true)
+                .frame(height: CGFloat(portfolioPnL.holdingPnLs.count) * 80)
 
                 addHoldingButton
             }
@@ -246,11 +317,11 @@ struct PortfolioSectionView: View {
     // MARK: - 共享组件
 
     private var addButtonTitle: String {
-        displayMode == .holdings ? "添加持仓" : "添加标的"
+        displayMode == .holdings ? "添加持仓".localized : "添加标的".localized
     }
 
     private var emptyStateTitle: String {
-        displayMode == .holdings ? "暂无持仓" : "暂无标的"
+        displayMode == .holdings ? "暂无持仓".localized : "暂无标的".localized
     }
 
     private var emptyHoldingsState: some View {

@@ -43,7 +43,7 @@ struct MonthStatsBar: View {
                             .foregroundStyle(totalPnL >= 0 ? AppColors.profit : AppColors.loss)
                     }
 
-                    Text("月度汇总")
+                    Text("月度汇总".localized)
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(AppColors.textPrimary)
                 }
@@ -63,8 +63,8 @@ struct MonthStatsBar: View {
                 MonthStatItem(
                     icon: "arrow.up.circle.fill",
                     iconColor: AppColors.profit,
-                    title: "盈利",
-                    value: "\(profitDays)天",
+                    title: "盈利".localized,
+                    value: "\(profitDays)\("天".localized)",
                     valueColor: AppColors.profit
                 )
 
@@ -73,8 +73,8 @@ struct MonthStatsBar: View {
                 MonthStatItem(
                     icon: "arrow.down.circle.fill",
                     iconColor: AppColors.loss,
-                    title: "亏损",
-                    value: "\(lossDays)天",
+                    title: "亏损".localized,
+                    value: "\(lossDays)\("天".localized)",
                     valueColor: AppColors.loss
                 )
 
@@ -83,7 +83,7 @@ struct MonthStatsBar: View {
                 MonthStatItem(
                     icon: "target",
                     iconColor: winRate >= 50 ? AppColors.profit : AppColors.loss,
-                    title: "胜率",
+                    title: "胜率".localized,
                     value: String(format: "%.1f%%", winRate),
                     valueColor: winRate >= 50 ? AppColors.profit : AppColors.loss
                 )
@@ -94,7 +94,7 @@ struct MonthStatsBar: View {
                     MonthStatItem(
                         icon: "chart.line.flattrend.xyaxis",
                         iconColor: avgPnLPercent >= 0 ? AppColors.profit : AppColors.loss,
-                        title: "日均",
+                        title: "日均".localized,
                         value: String(format: "%.2f%%", avgPnLPercent),
                         valueColor: avgPnLPercent >= 0 ? AppColors.profit : AppColors.loss
                     )

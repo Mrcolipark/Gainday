@@ -22,7 +22,7 @@ struct PortfolioListView: View {
                 }
             }
             .background(listBackground)
-            .navigationTitle("持仓")
+            .navigationTitle("持仓".localized)
             .toolbar {
                 ToolbarItem(placement: .automatic) {
                     Button {
@@ -33,7 +33,7 @@ struct PortfolioListView: View {
                     }
                 }
             }
-            .searchable(text: $searchText, prompt: "搜索持仓")
+            .searchable(text: $searchText, prompt: "搜索持仓".localized)
             .sheet(isPresented: $showAddTransaction) {
                 AddTransactionView(portfolios: portfolios)
             }
@@ -72,10 +72,10 @@ struct PortfolioListView: View {
                     .foregroundStyle(.blue.opacity(0.6))
             }
             VStack(spacing: 8) {
-                Text("暂无持仓")
+                Text("暂无持仓".localized)
                     .font(.title3.weight(.semibold))
                     .foregroundStyle(.primary)
-                Text("请先在设置中创建账户，然后添加交易")
+                Text("请先在设置中创建账户，然后添加交易".localized)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -95,7 +95,7 @@ struct PortfolioListView: View {
                         HStack {
                             Image(systemName: "magnifyingglass")
                                 .foregroundStyle(.secondary)
-                            Text("无匹配结果")
+                            Text("无匹配结果".localized)
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
                         }
@@ -113,19 +113,19 @@ struct PortfolioListView: View {
                                 Button(role: .destructive) {
                                     deleteHolding(holding, from: portfolio)
                                 } label: {
-                                    Label("删除", systemImage: "trash")
+                                    Label("删除".localized, systemImage: "trash")
                                 }
                             }
                             .contextMenu {
                                 Button {
                                     showAddTransaction = true
                                 } label: {
-                                    Label("加仓", systemImage: "plus.circle")
+                                    Label("加仓".localized, systemImage: "plus.circle")
                                 }
                                 Button {
                                     selectedHolding = holding
                                 } label: {
-                                    Label("详情", systemImage: "info.circle")
+                                    Label("详情".localized, systemImage: "info.circle")
                                 }
                             }
                         }

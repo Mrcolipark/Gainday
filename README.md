@@ -134,4 +134,4 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ---
 
-Made with ❤️ for investors who love beautiful apps
+For investors who love beautiful apps

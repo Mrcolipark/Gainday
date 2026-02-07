@@ -7,20 +7,23 @@ struct HoldingDetailsTable: View {
     let quotes: [String: MarketDataService.QuoteData]
     let showPercent: Bool
     let onHoldingTap: (Holding) -> Void
+    var onHoldingDelete: ((Holding) -> Void)? = nil
 
     // 列定义
-    private let columns: [TableColumn] = [
-        TableColumn(id: "price", title: "价格", width: 75),
-        TableColumn(id: "change", title: "涨跌", width: 70),
-        TableColumn(id: "changePercent", title: "涨跌%", width: 65),
-        TableColumn(id: "marketCap", title: "市值", width: 70),
-        TableColumn(id: "pe", title: "P/E", width: 50),
-        TableColumn(id: "volume", title: "成交量", width: 65),
-        TableColumn(id: "high52w", title: "52周高", width: 75),
-        TableColumn(id: "low52w", title: "52周低", width: 75),
-        TableColumn(id: "divYield", title: "股息率", width: 60),
-        TableColumn(id: "eps", title: "EPS", width: 55),
-    ]
+    private var columns: [TableColumn] {
+        [
+            TableColumn(id: "price", title: "价格".localized, width: 75),
+            TableColumn(id: "change", title: "涨跌".localized, width: 70),
+            TableColumn(id: "changePercent", title: "涨跌%".localized, width: 65),
+            TableColumn(id: "marketCap", title: "市值".localized, width: 70),
+            TableColumn(id: "pe", title: "P/E".localized, width: 50),
+            TableColumn(id: "volume", title: "成交量".localized, width: 65),
+            TableColumn(id: "high52w", title: "52周高".localized, width: 75),
+            TableColumn(id: "low52w", title: "52周低".localized, width: 75),
+            TableColumn(id: "divYield", title: "股息率".localized, width: 60),
+            TableColumn(id: "eps", title: "EPS".localized, width: 55),
+        ]
+    }
 
     struct TableColumn: Identifiable {
         let id: String
@@ -85,7 +88,7 @@ struct HoldingDetailsTable: View {
     private func fixedColumn(width: CGFloat) -> some View {
         VStack(spacing: 0) {
             // 表头
-            Text("股票")
+            Text("股票".localized)
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(AppColors.textSecondary)
                 .frame(width: width, height: 36, alignment: .leading)
@@ -136,6 +139,23 @@ struct HoldingDetailsTable: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .contextMenu {
+            Button {
+                onHoldingTap(holding)
+            } label: {
+                Label("查看详情".localized, systemImage: "info.circle")
+            }
+
+            if onHoldingDelete != nil {
+                Divider()
+
+                Button(role: .destructive) {
+                    onHoldingDelete?(holding)
+                } label: {
+                    Label("删除".localized, systemImage: "trash")
+                }
+            }
+        }
     }
 
     // MARK: - 可滚动表头

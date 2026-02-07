@@ -26,6 +26,10 @@ struct AddTransactionView: View {
     enum InvestmentMode: String, CaseIterable {
         case fixedAmount = "定额"
         case fixedQuantity = "定量"
+
+        var displayName: String {
+            rawValue.localized
+        }
     }
     @State private var investmentMode: InvestmentMode = .fixedQuantity
 
@@ -69,11 +73,13 @@ struct AddTransactionView: View {
             .safeAreaInset(edge: .bottom) {
                 saveButtonBar
             }
-            .navigationTitle("添加交易")
-            .navigationBarTitleDisplayMode(.inline)
+            .navigationTitle("添加交易".localized)
+            .toolbarTitleDisplayMode(.inline)
+            .toolbarBackground(AppColors.background, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("取消") { dismiss() }
+                    Button("取消".localized) { dismiss() }
                         .foregroundStyle(AppColors.textPrimary)
                 }
             }
@@ -107,7 +113,7 @@ struct AddTransactionView: View {
 
     private var accountSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            sectionTitle("选择账户")
+            sectionTitle("选择账户".localized)
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 12) {
@@ -140,7 +146,7 @@ struct AddTransactionView: View {
 
     private var transactionTypeSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            sectionTitle("交易类型")
+            sectionTitle("交易类型".localized)
 
             HStack(spacing: 0) {
                 ForEach(TransactionType.allCases) { type in
@@ -183,14 +189,14 @@ struct AddTransactionView: View {
 
     private var symbolSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            sectionTitle("标的信息")
+            sectionTitle("标的信息".localized)
 
             VStack(spacing: 16) {
                 // 代码输入
                 HStack(spacing: 12) {
                     FormField(
-                        label: "代码",
-                        placeholder: isMutualFund ? "如 0331418A" : "如 7203.T",
+                        label: "代码".localized,
+                        placeholder: isMutualFund ? "如 0331418A".localized : "如 7203.T".localized,
                         text: $symbolText,
                         keyboardType: .default,
                         capitalization: true
@@ -212,14 +218,14 @@ struct AddTransactionView: View {
 
                 // 名称输入
                 FormField(
-                    label: "名称",
-                    placeholder: "标的名称",
+                    label: "名称".localized,
+                    placeholder: "标的名称".localized,
                     text: $holdingName
                 )
 
                 // 市场选择
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("市场")
+                    Text("市场".localized)
                         .font(.system(size: 13, weight: .medium))
                         .foregroundStyle(AppColors.textSecondary)
 
@@ -247,7 +253,7 @@ struct AddTransactionView: View {
                 // 资产类型（非投信）
                 if !isMutualFund {
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("资产类型")
+                        Text("资产类型".localized)
                             .font(.system(size: 13, weight: .medium))
                             .foregroundStyle(AppColors.textSecondary)
 
@@ -287,7 +293,7 @@ struct AddTransactionView: View {
 
     private var mutualFundSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            sectionTitle("投资详情")
+            sectionTitle("投资详情".localized)
 
             VStack(spacing: 16) {
                 // 投资方式选择
@@ -296,7 +302,7 @@ struct AddTransactionView: View {
                         Button {
                             investmentMode = mode
                         } label: {
-                            Text(mode.rawValue)
+                            Text(mode.displayName)
                                 .font(.system(size: 15, weight: .medium))
                                 .foregroundStyle(investmentMode == mode ? .white : AppColors.textSecondary)
                                 .frame(maxWidth: .infinity)
@@ -317,19 +323,19 @@ struct AddTransactionView: View {
                 if investmentMode == .fixedAmount {
                     // 定额模式
                     FormField(
-                        label: "投资金额",
+                        label: "投资金额".localized,
                         placeholder: "10000",
                         text: $investmentAmount,
-                        suffix: "円",
+                        suffix: "円".localized,
                         keyboardType: .numberPad
                     )
 
                     HStack(spacing: 12) {
                         FormField(
-                            label: "基准价格",
+                            label: "基准价格".localized,
                             placeholder: "0",
                             text: $price,
-                            suffix: "円",
+                            suffix: "円".localized,
                             keyboardType: .decimalPad
                         )
 
@@ -357,18 +363,18 @@ struct AddTransactionView: View {
                 } else {
                     // 定量模式
                     FormField(
-                        label: "口数",
+                        label: "口数".localized,
                         placeholder: "0",
                         text: $quantity,
-                        suffix: "口",
+                        suffix: "口".localized,
                         keyboardType: .decimalPad
                     )
 
                     FormField(
-                        label: "基准价格",
+                        label: "基准价格".localized,
                         placeholder: "0",
                         text: $price,
-                        suffix: "円",
+                        suffix: "円".localized,
                         keyboardType: .decimalPad
                     )
                 }
@@ -376,8 +382,8 @@ struct AddTransactionView: View {
                 datePickerField
 
                 FormField(
-                    label: "备注",
-                    placeholder: "可选",
+                    label: "备注".localized,
+                    placeholder: "可选".localized,
                     text: $note
                 )
             }
@@ -393,20 +399,20 @@ struct AddTransactionView: View {
 
     private var stockTransactionSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            sectionTitle("交易详情")
+            sectionTitle("交易详情".localized)
 
             VStack(spacing: 16) {
                 HStack(spacing: 12) {
                     FormField(
-                        label: "数量",
+                        label: "数量".localized,
                         placeholder: "0",
                         text: $quantity,
-                        suffix: "股",
+                        suffix: "股".localized,
                         keyboardType: .decimalPad
                     )
 
                     FormField(
-                        label: "价格",
+                        label: "价格".localized,
                         placeholder: "0",
                         text: $price,
                         suffix: selectedMarket.currency,
@@ -415,7 +421,7 @@ struct AddTransactionView: View {
                 }
 
                 FormField(
-                    label: "手续费",
+                    label: "手续费".localized,
                     placeholder: "0",
                     text: $fee,
                     suffix: selectedMarket.currency,
@@ -425,8 +431,8 @@ struct AddTransactionView: View {
                 datePickerField
 
                 FormField(
-                    label: "备注",
-                    placeholder: "可选",
+                    label: "备注".localized,
+                    placeholder: "可选".localized,
                     text: $note
                 )
             }
@@ -444,27 +450,27 @@ struct AddTransactionView: View {
     private var summarySection: some View {
         if shouldShowSummary {
             VStack(alignment: .leading, spacing: 12) {
-                sectionTitle("汇总")
+                sectionTitle("汇总".localized)
 
                 VStack(spacing: 12) {
                     if isMutualFund && investmentMode == .fixedAmount {
                         if let amount = Double(investmentAmount), let nav = Double(price), nav > 0 {
                             let units = amount / nav
-                            summaryRow("取得口数", value: String(format: "%.4f 口", units), highlight: true)
-                            summaryRow("投资金额", value: amount.currencyFormatted(code: "JPY"))
+                            summaryRow("取得口数".localized, value: String(format: "%.4f \("口".localized)", units), highlight: true)
+                            summaryRow("投资金额".localized, value: amount.currencyFormatted(code: "JPY"))
                         }
                     } else {
                         if let qty = Double(quantity), let prc = Double(price), qty > 0, prc > 0 {
                             let feeAmount = Double(fee) ?? 0
                             let total = qty * prc + feeAmount
-                            summaryRow("数量", value: "\(qty.formatted()) \(isMutualFund ? "口" : "股")")
-                            summaryRow("价格", value: prc.currencyFormatted(code: selectedMarket.currency))
+                            summaryRow("数量".localized, value: "\(qty.formatted()) \(isMutualFund ? "口".localized : "股".localized)")
+                            summaryRow("价格".localized, value: prc.currencyFormatted(code: selectedMarket.currency))
                             if feeAmount > 0 {
-                                summaryRow("手续费", value: feeAmount.currencyFormatted(code: selectedMarket.currency))
+                                summaryRow("手续费".localized, value: feeAmount.currencyFormatted(code: selectedMarket.currency))
                             }
                             Divider()
                                 .background(AppColors.dividerColor)
-                            summaryRow("总金额", value: total.currencyFormatted(code: selectedMarket.currency), highlight: true)
+                            summaryRow("总金额".localized, value: total.currencyFormatted(code: selectedMarket.currency), highlight: true)
                         }
                     }
                 }
@@ -526,7 +532,7 @@ struct AddTransactionView: View {
             Button {
                 saveTransaction()
             } label: {
-                Text("保存交易")
+                Text("保存交易".localized)
                     .font(.system(size: 17, weight: .semibold))
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
@@ -553,7 +559,7 @@ struct AddTransactionView: View {
 
     private var datePickerField: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("日期")
+            Text("日期".localized)
                 .font(.system(size: 13, weight: .medium))
                 .foregroundStyle(AppColors.textSecondary)
 
@@ -594,16 +600,16 @@ struct AddTransactionView: View {
 
     private var validationMessage: String? {
         if date > Date() {
-            return "交易日期不能是未来日期"
+            return "交易日期不能是未来日期".localized
         }
         if isMutualFund && investmentMode == .fixedAmount {
             if let amount = Double(investmentAmount) {
-                if amount < 100 { return "投资金额至少100円" }
-                if amount > 100_000_000 { return "投资金额超出范围" }
+                if amount < 100 { return "投资金额至少100円".localized }
+                if amount > 100_000_000 { return "投资金额超出范围".localized }
             }
         } else {
             if let prc = Double(price) {
-                if prc > 1_000_000_000 { return "价格超出合理范围" }
+                if prc > 1_000_000_000 { return "价格超出合理范围".localized }
             }
         }
         return nil

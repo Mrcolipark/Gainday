@@ -46,9 +46,9 @@ struct ViewModeSelector: View {
 extension PortfolioDisplayMode {
     var localizedName: String {
         switch self {
-        case .basic:    return "列表"
-        case .details:  return "详情"
-        case .holdings: return "持仓"
+        case .basic:    return "列表".localized
+        case .details:  return "详情".localized
+        case .holdings: return "持仓".localized
         }
     }
 }

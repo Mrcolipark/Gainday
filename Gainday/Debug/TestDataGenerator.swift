@@ -6,6 +6,10 @@ import SwiftUI
 /// Debug tool for generating test data
 struct TestDataGenerator {
 
+    // MARK: - 汇率常量（用于换算到基准货币 JPY）
+    private static let usdToJpy: Double = 150.0  // 1 USD = 150 JPY
+    private static let cnyToJpy: Double = 21.0   // 1 CNY = 21 JPY
+
     /// 生成完整的测试数据集
     @MainActor
     static func generateAllTestData(modelContext: ModelContext) {
@@ -50,9 +54,9 @@ struct TestDataGenerator {
     @MainActor
     private static func generateTestPortfolios(modelContext: ModelContext) -> [Portfolio] {
         let portfoliosData: [(name: String, type: String, currency: String, color: String)] = [
-            ("楽天証券", AccountType.normal.rawValue, BaseCurrency.JPY.rawValue, "blue"),
-            ("SBI証券 NISA", AccountType.nisa_tsumitate.rawValue, BaseCurrency.JPY.rawValue, "teal"),
-            ("Firstrade", AccountType.normal.rawValue, BaseCurrency.USD.rawValue, "orange"),
+            ("乐天证券", AccountType.normal.rawValue, BaseCurrency.JPY.rawValue, "blue"),
+            ("乐天证券 NISA", AccountType.nisa_tsumitate.rawValue, BaseCurrency.JPY.rawValue, "teal"),
+            ("招商证券", AccountType.normal.rawValue, BaseCurrency.CNY.rawValue, "red"),
         ]
 
         var portfolios: [Portfolio] = []
@@ -73,129 +77,178 @@ struct TestDataGenerator {
 
     @MainActor
     private static func generateTestHoldings(portfolios: [Portfolio], modelContext: ModelContext) {
-        // 日本股票 - 楽天証券
-        if let rakuten = portfolios.first(where: { $0.name == "楽天証券" }) {
-            let jpStocks: [(symbol: String, name: String, qty: Double, price: Double)] = [
-                ("7203.T", "トヨタ自動車", 100, 2850),
-                ("9984.T", "ソフトバンクグループ", 50, 8500),
-                ("6758.T", "ソニーグループ", 30, 14200),
-                ("8306.T", "三菱UFJ銀行", 200, 1650),
+        // 乐天证券 - 日股 + 美股
+        if let rakuten = portfolios.first(where: { $0.name == "乐天证券" }) {
+            // 日股
+            let jpStocks: [(symbol: String, name: String, qty: Double, price: Double, date: String)] = [
+                ("285A.T", "キオクシアHD", 2, 13875, "20260114"),
+                ("285A.T", "キオクシアHD", 1, 20390, "20260203"),
+                ("285A.T", "キオクシアHD", 1, 20155, "20260203"),
+                ("7974.T", "任天堂", 10, 9979, "20260113"),
+                ("7013.T", "IHI", 27, 3540, "20260113"),
+                ("7013.T", "IHI", 3, 3479, "20260128"),
+                ("7013.T", "IHI", 3, 3483, "20260113"),
+                ("7013.T", "IHI", 17, 3484, "20260114"),
             ]
 
+            // 按股票代码分组创建持仓
+            var jpHoldingsMap: [String: Holding] = [:]
             for stock in jpStocks {
-                let holding = Holding(
-                    symbol: stock.symbol,
-                    name: stock.name,
-                    assetType: AssetType.stock.rawValue,
-                    market: Market.JP.rawValue
-                )
-                holding.portfolio = rakuten  // Explicitly set inverse relationship
-                modelContext.insert(holding)
-                rakuten.holdings.append(holding)
+                let holding: Holding
+                if let existing = jpHoldingsMap[stock.symbol] {
+                    holding = existing
+                } else {
+                    holding = Holding(
+                        symbol: stock.symbol,
+                        name: stock.name,
+                        assetType: AssetType.stock.rawValue,
+                        market: Market.JP.rawValue
+                    )
+                    holding.portfolio = rakuten
+                    modelContext.insert(holding)
+                    rakuten.holdings.append(holding)
+                    jpHoldingsMap[stock.symbol] = holding
+                }
 
-                // 添加买入交易
+                // 解析日期
+                let dateFormatter = DateFormatter()
+                dateFormatter.dateFormat = "yyyyMMdd"
+                let tradeDate = dateFormatter.date(from: stock.date) ?? Date()
+
                 let tx = Transaction(
                     type: TransactionType.buy.rawValue,
-                    date: Date().adding(days: -Int.random(in: 30...180)),
+                    date: tradeDate,
                     quantity: stock.qty,
-                    price: stock.price * Double.random(in: 0.9...1.0), // 买入价略低
+                    price: stock.price,
                     fee: 0,
                     currency: "JPY"
+                )
+                modelContext.insert(tx)
+                holding.transactions.append(tx)
+            }
+
+            // 美股
+            let usStocks: [(symbol: String, name: String, qty: Double, price: Double, date: String)] = [
+                ("MUU", "MicroSectors Gold Miners 3X", 1, 216.05, "20260203"),
+                ("MAGS", "Roundhill Magnificent Seven ETF", 10, 65.6, "20260127"),
+                ("ONDS", "Ondas Holdings", 15, 11.185, "20260127"),
+                ("ONDS", "Ondas Holdings", 45, 12.8292, "20260121"),
+            ]
+
+            var usHoldingsMap: [String: Holding] = [:]
+            for stock in usStocks {
+                let holding: Holding
+                if let existing = usHoldingsMap[stock.symbol] {
+                    holding = existing
+                } else {
+                    holding = Holding(
+                        symbol: stock.symbol,
+                        name: stock.name,
+                        assetType: AssetType.stock.rawValue,
+                        market: Market.US.rawValue
+                    )
+                    holding.portfolio = rakuten
+                    modelContext.insert(holding)
+                    rakuten.holdings.append(holding)
+                    usHoldingsMap[stock.symbol] = holding
+                }
+
+                let dateFormatter = DateFormatter()
+                dateFormatter.dateFormat = "yyyyMMdd"
+                let tradeDate = dateFormatter.date(from: stock.date) ?? Date()
+
+                let tx = Transaction(
+                    type: TransactionType.buy.rawValue,
+                    date: tradeDate,
+                    quantity: stock.qty,
+                    price: stock.price,
+                    fee: 0,
+                    currency: "USD"
                 )
                 modelContext.insert(tx)
                 holding.transactions.append(tx)
             }
         }
 
-        // NISA - SBI証券 (ETF + 投資信託)
-        if let sbi = portfolios.first(where: { $0.name.contains("NISA") }) {
-            // 上場ETF
-            let nisaETFs: [(symbol: String, name: String, qty: Double, price: Double)] = [
-                ("1306.T", "TOPIX ETF", 50, 2800),
-                ("2558.T", "S&P500 ETF", 30, 22500),
+        // 乐天证券 NISA - 積立投資信託
+        if let nisa = portfolios.first(where: { $0.name == "乐天证券 NISA" }) {
+            // NISA積立定投基金 (每月24日定投)
+            // 使用真实的8位基金代码，App会通过JapanFundService获取报价
+            let nisaFunds: [(symbol: String, name: String, monthlyAmount: Double)] = [
+                ("03311172", "eMAXIS Slim 先進国株式インデックス", 25000),        // 先進国株式(除く日本同系列)
+                ("04311214", "iFreeNEXT FANG+インデックス", 25000),              // FANG+ ETF
+                ("89311199", "楽天・全米株式インデックス・ファンド", 50000),        // 楽天VTI
             ]
 
-            for stock in nisaETFs {
-                let holding = Holding(
-                    symbol: stock.symbol,
-                    name: stock.name,
-                    assetType: AssetType.fund.rawValue,
-                    market: Market.JP.rawValue
-                )
-                holding.portfolio = sbi
-                modelContext.insert(holding)
-                sbi.holdings.append(holding)
-
-                let tx = Transaction(
-                    type: TransactionType.buy.rawValue,
-                    date: Date().adding(days: -Int.random(in: 60...365)),
-                    quantity: stock.qty,
-                    price: stock.price * Double.random(in: 0.85...0.95),
-                    fee: 0,
-                    currency: "JPY"
-                )
-                modelContext.insert(tx)
-                holding.transactions.append(tx)
-            }
-
-            // 投資信託 (非上場)
-            let nisaFunds: [(symbol: String, name: String, qty: Double, price: Double)] = [
-                ("0331418A", "eMAXIS Slim 米国株式(S&P500)", 100, 28500),
-                ("03311187", "eMAXIS Slim 全世界株式", 80, 24800),
-            ]
+            let calendar = Calendar.current
+            let dateFormatter = DateFormatter()
+            dateFormatter.dateFormat = "yyyyMMdd"
 
             for fund in nisaFunds {
                 let holding = Holding(
                     symbol: fund.symbol,
                     name: fund.name,
                     assetType: AssetType.fund.rawValue,
-                    market: Market.JP_FUND.rawValue  // 使用新的投信市场类型
+                    market: Market.JP_FUND.rawValue
                 )
-                holding.portfolio = sbi
+                holding.portfolio = nisa
                 modelContext.insert(holding)
-                sbi.holdings.append(holding)
+                nisa.holdings.append(holding)
 
-                let tx = Transaction(
-                    type: TransactionType.buy.rawValue,
-                    date: Date().adding(days: -Int.random(in: 90...400)),
-                    quantity: fund.qty,
-                    price: fund.price * Double.random(in: 0.80...0.90),
-                    fee: 0,
-                    currency: "JPY"
-                )
-                modelContext.insert(tx)
-                holding.transactions.append(tx)
+                // 生成过去几个月的定投交易记录（模拟从2025年10月开始定投）
+                let startDate = dateFormatter.date(from: "20251024") ?? Date()
+                var currentDate = startDate
+
+                while currentDate <= Date() {
+                    // 基准价约10000-30000日元/口，每月波动
+                    let basePrice = Double.random(in: 18000...25000)
+                    let quantity = fund.monthlyAmount / basePrice
+
+                    let tx = Transaction(
+                        type: TransactionType.buy.rawValue,
+                        date: currentDate,
+                        quantity: quantity,
+                        price: basePrice,
+                        fee: 0,
+                        currency: "JPY"
+                    )
+                    modelContext.insert(tx)
+                    holding.transactions.append(tx)
+
+                    // 下个月24日
+                    currentDate = calendar.date(byAdding: .month, value: 1, to: currentDate) ?? currentDate
+                }
             }
         }
 
-        // 美股 - Firstrade
-        if let firstrade = portfolios.first(where: { $0.name == "Firstrade" }) {
-            let usStocks: [(symbol: String, name: String, qty: Double, price: Double)] = [
-                ("AAPL", "Apple Inc.", 50, 185),
-                ("MSFT", "Microsoft Corp.", 30, 420),
-                ("GOOGL", "Alphabet Inc.", 20, 175),
-                ("NVDA", "NVIDIA Corp.", 15, 880),
-                ("TSLA", "Tesla Inc.", 25, 245),
+        // 招商证券 - A股
+        if let zhaoshang = portfolios.first(where: { $0.name == "招商证券" }) {
+            let cnStocks: [(symbol: String, name: String, qty: Double, price: Double, date: String)] = [
+                ("603306.SS", "华懋科技", 100, 66.6, "20260115"),
             ]
 
-            for stock in usStocks {
+            for stock in cnStocks {
                 let holding = Holding(
                     symbol: stock.symbol,
                     name: stock.name,
                     assetType: AssetType.stock.rawValue,
-                    market: Market.US.rawValue
+                    market: Market.CN.rawValue
                 )
-                holding.portfolio = firstrade
+                holding.portfolio = zhaoshang
                 modelContext.insert(holding)
-                firstrade.holdings.append(holding)
+                zhaoshang.holdings.append(holding)
+
+                let dateFormatter = DateFormatter()
+                dateFormatter.dateFormat = "yyyyMMdd"
+                let tradeDate = dateFormatter.date(from: stock.date) ?? Date()
 
                 let tx = Transaction(
                     type: TransactionType.buy.rawValue,
-                    date: Date().adding(days: -Int.random(in: 30...200)),
+                    date: tradeDate,
                     quantity: stock.qty,
-                    price: stock.price * Double.random(in: 0.8...0.95),
+                    price: stock.price,
                     fee: 0,
-                    currency: "USD"
+                    currency: "CNY"
                 )
                 modelContext.insert(tx)
                 holding.transactions.append(tx)
@@ -208,9 +261,43 @@ struct TestDataGenerator {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
 
+        // 基于实际持仓计算基准值（全部换算成日元）
+        // ========================================
+        // 日股 (JPY):
+        //   285A.T: 4股 × ¥19095 = ¥76,380
+        //   7974.T: 10股 × ¥8441 = ¥84,410
+        //   7013.T: 50股 × ¥3946 = ¥197,300
+        //   小计: ¥358,090
+        //
+        // 美股 (USD → JPY, 汇率 150):
+        //   MUU: 1股 × $175 = $175 → ¥26,250
+        //   MAGS: 10股 × $62.72 = $627.2 → ¥94,080
+        //   ONDS: 60股 × $9.29 = $557.4 → ¥83,610
+        //   小计: $1,359.6 → ¥203,940
+        //
+        // A股 (CNY → JPY, 汇率 21):
+        //   603306.SS: 100股 × ¥77.4 = ¥7,740 CNY → ¥162,540 JPY
+        //
+        // NISA定投 (JPY):
+        //   约4个月 × ¥100,000 = ¥400,000
+        //
+        // 总计: ¥358,090 + ¥203,940 + ¥162,540 + ¥400,000 = ¥1,124,570
+        // ========================================
+
+        // 各资产原始货币成本
+        let jpStockCostJPY: Double = 358_000      // 日股成本 (JPY)
+        let usStockCostUSD: Double = 1_360        // 美股成本 (USD)
+        let cnStockCostCNY: Double = 6_660        // A股成本 (CNY)
+        let nisaFundCostJPY: Double = 400_000     // NISA基金成本 (JPY)
+
+        // 换算成日元的总成本
+        let totalCostJPY = jpStockCostJPY
+            + (usStockCostUSD * usdToJpy)
+            + (cnStockCostCNY * cnyToJpy)
+            + nisaFundCostJPY
+
         // 生成过去90天的快照数据
         var cumulativePnL: Double = 0
-        let baseTotalValue: Double = 5_000_000 // 500万日元基准
 
         for daysAgo in (0...90).reversed() {
             guard let date = calendar.date(byAdding: .day, value: -daysAgo, to: today) else { continue }
@@ -219,26 +306,53 @@ struct TestDataGenerator {
             let weekday = calendar.component(.weekday, from: date)
             if weekday == 1 || weekday == 7 { continue }
 
-            // 随机生成当日盈亏 (-3% ~ +3%)
-            let dailyPnLPercent = Double.random(in: -3.0...3.0)
-            let dailyPnL = baseTotalValue * dailyPnLPercent / 100
+            // 各资产类别独立的日收益率 (-3% ~ +3%)
+            let jpPnLPercent = Double.random(in: -3.0...3.0)
+            let usPnLPercent = Double.random(in: -4.0...4.0)  // 美股波动稍大
+            let cnPnLPercent = Double.random(in: -5.0...5.0)  // A股波动更大
+            let nisaPnLPercent = Double.random(in: -2.0...2.0) // 基金波动较小
+
+            // 计算各资产当日盈亏（换算成JPY）
+            let jpPnL = jpStockCostJPY * jpPnLPercent / 100
+            let usPnL = (usStockCostUSD * usdToJpy) * usPnLPercent / 100
+            let cnPnL = (cnStockCostCNY * cnyToJpy) * cnPnLPercent / 100
+            let nisaPnL = nisaFundCostJPY * nisaPnLPercent / 100
+
+            let dailyPnL = jpPnL + usPnL + cnPnL + nisaPnL
+            let dailyPnLPercent = (dailyPnL / totalCostJPY) * 100
 
             cumulativePnL += dailyPnL
 
-            let totalValue = baseTotalValue + cumulativePnL
-            let totalCost = baseTotalValue * 0.9 // 假设成本是市值的90%
+            let totalValue = totalCostJPY + cumulativePnL
 
-            // 创建分类明细
+            // 创建分类明细（value/cost/pnl 全部为 JPY 计价，currency 标记原始货币）
             let breakdown: [AssetBreakdown] = [
-                AssetBreakdown(assetType: AssetType.stock.rawValue, value: totalValue * 0.7, cost: totalCost * 0.7, pnl: dailyPnL * 0.7, currency: "JPY"),
-                AssetBreakdown(assetType: AssetType.fund.rawValue, value: totalValue * 0.2, cost: totalCost * 0.2, pnl: dailyPnL * 0.2, currency: "JPY"),
-                AssetBreakdown(assetType: AssetType.stock.rawValue, value: totalValue * 0.1, cost: totalCost * 0.1, pnl: dailyPnL * 0.1, currency: "USD"),
+                AssetBreakdown(assetType: AssetType.stock.rawValue,
+                              value: jpStockCostJPY + jpPnL * Double(90 - daysAgo) / 90,
+                              cost: jpStockCostJPY,
+                              pnl: jpPnL,
+                              currency: "JPY"),
+                AssetBreakdown(assetType: AssetType.fund.rawValue,
+                              value: nisaFundCostJPY + nisaPnL * Double(90 - daysAgo) / 90,
+                              cost: nisaFundCostJPY,
+                              pnl: nisaPnL,
+                              currency: "JPY"),
+                AssetBreakdown(assetType: AssetType.stock.rawValue,
+                              value: (usStockCostUSD * usdToJpy) + usPnL * Double(90 - daysAgo) / 90,
+                              cost: usStockCostUSD * usdToJpy,  // 成本也换算成JPY
+                              pnl: usPnL,
+                              currency: "USD"),
+                AssetBreakdown(assetType: AssetType.stock.rawValue,
+                              value: (cnStockCostCNY * cnyToJpy) + cnPnL * Double(90 - daysAgo) / 90,
+                              cost: cnStockCostCNY * cnyToJpy,  // 成本也换算成JPY
+                              pnl: cnPnL,
+                              currency: "CNY"),
             ]
 
             let snapshot = DailySnapshot(
                 date: date,
                 totalValue: totalValue,
-                totalCost: totalCost,
+                totalCost: totalCostJPY,
                 dailyPnL: dailyPnL,
                 dailyPnLPercent: dailyPnLPercent,
                 cumulativePnL: cumulativePnL
@@ -292,7 +406,7 @@ struct DebugDataSection: View {
                     TestDataGenerator.generateAllTestData(modelContext: modelContext)
                 }
             } message: {
-                Text("将创建3个测试账户、多个持仓和90天的日历数据")
+                Text("将创建乐天证券(日股+美股)、NISA定投、招商证券(A股)和90天日历数据")
             }
 
             Divider()

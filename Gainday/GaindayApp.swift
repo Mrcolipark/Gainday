@@ -17,6 +17,9 @@ struct GaindayApp: App {
         configureAppearance()
     }
 
+    /// App Group identifier for sharing data with widgets
+    private static let appGroupIdentifier = "group.com.gainday.shared"
+
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
             Portfolio.self,
@@ -25,9 +28,12 @@ struct GaindayApp: App {
             DailySnapshot.self,
             PriceCache.self
         ])
+
+        // 使用 App Group 共享目录存储数据库，以便 Widget 访问
         let modelConfiguration = ModelConfiguration(
             schema: schema,
             isStoredInMemoryOnly: false,
+            groupContainer: .identifier(appGroupIdentifier),
             cloudKitDatabase: .automatic
         )
 

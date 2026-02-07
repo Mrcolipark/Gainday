@@ -113,14 +113,35 @@ class HomeViewModel {
             let quoteResults = try await MarketDataService.shared.fetchUnifiedQuotes(holdings: holdingMarkets)
             quotes = quoteResults
 
-            // 2. 获取汇率（如果有多币种）
-            let currencies = Set(portfolios.map(\.baseCurrency))
+            // 2. 获取汇率（收集所有持仓的货币，换算到各账户的基准货币）
             var rates: [String: Double] = [:]
-            if currencies.count > 1 {
-                // 获取所有货币对 JPY 的汇率
-                for currency in currencies where currency != "JPY" {
-                    if let rate = try? await CurrencyService.shared.getRate(from: currency, to: "JPY") {
-                        rates["\(currency)_JPY"] = rate
+
+            for portfolio in portfolios {
+                let portfolioBaseCurrency = portfolio.baseCurrency
+
+                // 收集该账户下所有持仓的货币
+                let holdingCurrencies = Set(portfolio.holdings.compactMap { holding -> String? in
+                    // 从报价获取货币，或根据市场推断
+                    if let quote = quoteResults[holding.symbol], let currency = quote.currency {
+                        return currency
+                    }
+                    // 根据市场推断货币
+                    switch Market(rawValue: holding.market) {
+                    case .US: return "USD"
+                    case .JP, .JP_FUND: return "JPY"
+                    case .CN: return "CNY"
+                    case .HK: return "HKD"
+                    default: return nil
+                    }
+                })
+
+                // 获取每种持仓货币到账户基准货币的汇率
+                for holdingCurrency in holdingCurrencies where holdingCurrency != portfolioBaseCurrency {
+                    let rateKey = "\(holdingCurrency)\(portfolioBaseCurrency)"
+                    if rates[rateKey] == nil {
+                        if let rate = try? await CurrencyService.shared.getRate(from: holdingCurrency, to: portfolioBaseCurrency) {
+                            rates[rateKey] = rate
+                        }
                     }
                 }
             }
@@ -129,9 +150,10 @@ class HomeViewModel {
             let calcService = PnLCalculationService.shared
             var pnls: [PnLCalculationService.PortfolioPnL] = []
 
-            var totalValue: Double = 0
-            var totalCost: Double = 0
-            var totalDailyPnL: Double = 0
+            // 全局基准货币的汇总（需要把各账户的值换算到全局基准货币）
+            var totalValueInBase: Double = 0
+            var totalCostInBase: Double = 0
+            var totalDailyPnLInBase: Double = 0
 
             for portfolio in portfolios {
                 let pnl = calcService.calculatePortfolioPnL(
@@ -140,24 +162,40 @@ class HomeViewModel {
                     rates: rates
                 )
                 pnls.append(pnl)
-                totalValue += pnl.totalValue
-                totalCost += pnl.totalCost
-                totalDailyPnL += pnl.dailyPnL
+
+                // 把账户基准货币换算到全局基准货币
+                let portfolioBaseCurrency = portfolio.baseCurrency
+                var portfolioToGlobalRate: Double = 1.0
+
+                if portfolioBaseCurrency != baseCurrency {
+                    // 获取账户基准货币到全局基准货币的汇率
+                    let rateKey = "\(portfolioBaseCurrency)\(baseCurrency)"
+                    if let rate = rates[rateKey] {
+                        portfolioToGlobalRate = rate
+                    } else if let rate = try? await CurrencyService.shared.getRate(from: portfolioBaseCurrency, to: baseCurrency) {
+                        portfolioToGlobalRate = rate
+                        rates[rateKey] = rate  // 缓存
+                    }
+                }
+
+                totalValueInBase += pnl.totalValue * portfolioToGlobalRate
+                totalCostInBase += pnl.totalCost * portfolioToGlobalRate
+                totalDailyPnLInBase += pnl.dailyPnL * portfolioToGlobalRate
             }
 
             portfolioPnLs = pnls
 
-            let unrealized = totalValue - totalCost
-            let unrealizedPct = totalCost > 0 ? (unrealized / totalCost) * 100 : 0
-            let previousValue = totalValue - totalDailyPnL
-            let dailyPct = previousValue > 0 ? (totalDailyPnL / previousValue) * 100 : 0
+            let unrealized = totalValueInBase - totalCostInBase
+            let unrealizedPct = totalCostInBase > 0 ? (unrealized / totalCostInBase) * 100 : 0
+            let previousValue = totalValueInBase - totalDailyPnLInBase
+            let dailyPct = previousValue > 0 ? (totalDailyPnLInBase / previousValue) * 100 : 0
 
             overallPnL = PnLCalculationService.OverallPnL(
-                totalValue: totalValue,
-                totalCost: totalCost,
+                totalValue: totalValueInBase,
+                totalCost: totalCostInBase,
                 unrealizedPnL: unrealized,
                 unrealizedPnLPercent: unrealizedPct,
-                dailyPnL: totalDailyPnL,
+                dailyPnL: totalDailyPnLInBase,
                 dailyPnLPercent: dailyPct,
                 portfolioPnLs: pnls
             )

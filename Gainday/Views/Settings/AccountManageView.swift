@@ -38,7 +38,9 @@ struct AccountManageView: View {
         .background(AppColors.background)
         .navigationTitle(portfolio.name)
         #if os(iOS)
-        .navigationBarTitleDisplayMode(.inline)
+        .toolbarTitleDisplayMode(.inline)
+        .toolbarBackground(AppColors.background, for: .navigationBar)
+        .toolbarBackground(.visible, for: .navigationBar)
         #endif
         .onAppear {
             editedName = portfolio.name
@@ -53,11 +55,11 @@ struct AccountManageView: View {
             portfolio.baseCurrency = editedBaseCurrency.rawValue
             portfolio.colorTag = editedColorTag
         }
-        .alert("确认删除", isPresented: $showDeleteConfirmation) {
-            Button("取消", role: .cancel) {
+        .alert("确认删除".localized, isPresented: $showDeleteConfirmation) {
+            Button("取消".localized, role: .cancel) {
                 holdingToDelete = nil
             }
-            Button("删除", role: .destructive) {
+            Button("删除".localized, role: .destructive) {
                 if let holding = holdingToDelete {
                     if let index = portfolio.holdings.firstIndex(where: { $0.id == holding.id }) {
                         portfolio.holdings.remove(at: index)
@@ -70,7 +72,7 @@ struct AccountManageView: View {
             }
         } message: {
             if let holding = holdingToDelete {
-                Text("确定要删除「\(holding.name)」吗？\n\n该持仓的所有交易记录都将被永久删除。")
+                Text("\("确定要删除吗".localized)\n「\(holding.name)」\n\n\("该持仓的所有交易记录都将被永久删除。".localized)")
             }
         }
     }
@@ -79,19 +81,19 @@ struct AccountManageView: View {
 
     private var accountInfoSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            sectionHeader("账户信息", icon: "building.columns.fill")
+            sectionHeader("账户信息".localized, icon: "building.columns.fill")
 
             VStack(spacing: 16) {
                 // 账户名称
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("账户名称")
+                    Text("账户名称".localized)
                         .font(.system(size: 13, weight: .medium))
                         .foregroundStyle(AppColors.textSecondary)
 
                     TextField(
                         "",
                         text: $editedName,
-                        prompt: Text("账户名称")
+                        prompt: Text("账户名称".localized)
                             .foregroundStyle(AppColors.textTertiary)
                     )
                     .font(.system(size: 16))
@@ -106,7 +108,7 @@ struct AccountManageView: View {
 
                 // 账户类型
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("账户类型")
+                    Text("账户类型".localized)
                         .font(.system(size: 13, weight: .medium))
                         .foregroundStyle(AppColors.textSecondary)
 
@@ -137,7 +139,7 @@ struct AccountManageView: View {
 
                 // 基准货币
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("基准货币")
+                    Text("基准货币".localized)
                         .font(.system(size: 13, weight: .medium))
                         .foregroundStyle(AppColors.textSecondary)
 
@@ -172,7 +174,7 @@ struct AccountManageView: View {
 
     private var colorSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            sectionHeader("标识颜色", icon: "paintpalette.fill")
+            sectionHeader("标识颜色".localized, icon: "paintpalette.fill")
 
             VStack(spacing: 16) {
                 // 预览
@@ -195,7 +197,7 @@ struct AccountManageView: View {
                     }
 
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(editedName.isEmpty ? "账户名称" : editedName)
+                        Text(editedName.isEmpty ? "账户名称".localized : editedName)
                             .font(.system(size: 16, weight: .medium))
                             .foregroundStyle(AppColors.textPrimary)
 
@@ -256,7 +258,7 @@ struct AccountManageView: View {
 
     private var holdingsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            sectionHeader("持仓 (\(portfolio.holdings.count))", icon: "chart.pie.fill")
+            sectionHeader("\("持仓".localized) (\(portfolio.holdings.count))", icon: "chart.pie.fill")
 
             if portfolio.holdings.isEmpty {
                 // 空状态
@@ -265,11 +267,11 @@ struct AccountManageView: View {
                         .font(.system(size: 32))
                         .foregroundStyle(AppColors.textTertiary)
 
-                    Text("暂无持仓")
+                    Text("暂无持仓".localized)
                         .font(.system(size: 15))
                         .foregroundStyle(AppColors.textSecondary)
 
-                    Text("在主页添加标的后会显示在这里")
+                    Text("在主页添加标的后会显示在这里".localized)
                         .font(.system(size: 13))
                         .foregroundStyle(AppColors.textTertiary)
                 }
@@ -341,7 +343,7 @@ struct AccountManageView: View {
                     .font(.system(size: 14, weight: .medium, design: .monospaced))
                     .foregroundStyle(AppColors.textPrimary)
 
-                Text("\(holding.transactions.count) 笔交易")
+                Text("\(holding.transactions.count) \("笔交易".localized)")
                     .font(.system(size: 11))
                     .foregroundStyle(AppColors.textTertiary)
             }
@@ -366,7 +368,7 @@ struct AccountManageView: View {
 
     private var dangerSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            sectionHeader("危险操作", icon: "exclamationmark.triangle.fill")
+            sectionHeader("危险操作".localized, icon: "exclamationmark.triangle.fill")
 
             Button {
                 deleteAccount()
@@ -383,11 +385,11 @@ struct AccountManageView: View {
                     }
 
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("删除账户")
+                        Text("删除账户".localized)
                             .font(.system(size: 15, weight: .medium))
                             .foregroundStyle(AppColors.loss)
 
-                        Text("将永久删除该账户及所有数据")
+                        Text("将永久删除该账户及所有数据".localized)
                             .font(.system(size: 12))
                             .foregroundStyle(AppColors.textTertiary)
                     }
