@@ -156,45 +156,19 @@ struct HoldingDetailView: View {
     private var chartSection: some View {
         VStack(spacing: 12) {
             // 时间范围选择
-            HStack(spacing: 8) {
-                ForEach([TimeRange.week, .month, .threeMonths, .sixMonths, .year], id: \.self) { range in
-                    Button {
-                        selectedTimeRange = range
-                        Task { await loadChartData() }
-                    } label: {
-                        Text(range.displayName)
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundStyle(selectedTimeRange == range ? .white : AppColors.textSecondary)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 6)
-                            .background(
-                                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                                    .fill(selectedTimeRange == range ? AppColors.profit : AppColors.elevatedSurface)
-                            )
-                    }
-                }
-            }
+            timeRangeSelector
 
-            // 图表
+            // 交互式图表
             if isLoadingChart {
                 ProgressView()
-                    .frame(height: 180)
+                    .frame(height: 250)
                     .frame(maxWidth: .infinity)
-            } else if !chartData.isEmpty {
-                let chartIsPositive = (chartData.last?.close ?? 0) >= (chartData.first?.close ?? 0)
-                SimpleLineChart(data: chartData, isPositive: chartIsPositive)
-                    .frame(height: 180)
             } else {
-                VStack(spacing: 8) {
-                    Image(systemName: "chart.line.uptrend.xyaxis")
-                        .font(.system(size: 32))
-                        .foregroundStyle(AppColors.textTertiary)
-                    Text("暂无图表数据".localized)
-                        .font(.system(size: 14))
-                        .foregroundStyle(AppColors.textSecondary)
-                }
-                .frame(height: 180)
-                .frame(maxWidth: .infinity)
+                InteractiveStockChart(
+                    data: chartData,
+                    currency: holding.currency
+                )
+                .frame(height: 250)
             }
         }
         .padding(16)
@@ -202,6 +176,28 @@ struct HoldingDetailView: View {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .fill(AppColors.cardSurface)
         )
+    }
+
+    private var timeRangeSelector: some View {
+        HStack(spacing: 6) {
+            ForEach(TimeRange.allCases, id: \.self) { range in
+                Button {
+                    selectedTimeRange = range
+                    Task { await loadChartData() }
+                } label: {
+                    Text(range.rawValue)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(selectedTimeRange == range ? .white : AppColors.textSecondary)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(
+                            Capsule()
+                                .fill(selectedTimeRange == range ? AppColors.accent : AppColors.elevatedSurface)
+                        )
+                }
+                .buttonStyle(.plain)
+            }
+        }
     }
 
     // MARK: - 分段选择器

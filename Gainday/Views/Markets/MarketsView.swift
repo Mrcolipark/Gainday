@@ -515,7 +515,7 @@ struct MarketQuoteDetailView: View {
     private var chartSection: some View {
         VStack(spacing: 12) {
             // 时间范围选择器
-            HStack(spacing: 8) {
+            HStack(spacing: 6) {
                 ForEach(TimeRange.allCases, id: \.self) { range in
                     Button {
                         selectedTimeRange = range
@@ -535,18 +535,16 @@ struct MarketQuoteDetailView: View {
                 }
             }
 
-            // 图表
+            // 交互式图表
             if isLoadingChart {
                 ProgressView()
-                    .frame(height: 180)
-            } else if chartData.isEmpty {
-                Text("暂无图表数据".localized)
-                    .font(.caption)
-                    .foregroundStyle(AppColors.textTertiary)
-                    .frame(height: 180)
+                    .frame(height: 250)
             } else {
-                SimpleLineChart(data: chartData, isPositive: isPositive)
-                    .frame(height: 180)
+                InteractiveStockChart(
+                    data: chartData,
+                    currency: currency
+                )
+                .frame(height: 250)
             }
         }
         .padding()
