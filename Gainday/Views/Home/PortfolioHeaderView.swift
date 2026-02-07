@@ -63,10 +63,42 @@ struct PortfolioHeaderView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(AppColors.cardSurface)
-        )
+        .background {
+            // 弥散渐变背景 — 盈利绿色 / 亏损红色
+            let accentColor = isPositive ? AppColors.profit : AppColors.loss
+
+            ZStack {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(AppColors.cardSurface)
+
+                // 右上角弥散光斑
+                RadialGradient(
+                    colors: [
+                        Color(light: accentColor.opacity(0.15),
+                              dark: accentColor.opacity(0.25)),
+                        Color.clear
+                    ],
+                    center: .topTrailing,
+                    startRadius: 0,
+                    endRadius: 180
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+
+                // 左下角更淡的弥散
+                RadialGradient(
+                    colors: [
+                        Color(light: accentColor.opacity(0.06),
+                              dark: accentColor.opacity(0.1)),
+                        Color.clear
+                    ],
+                    center: .bottomLeading,
+                    startRadius: 0,
+                    endRadius: 140
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            }
+        }
+        .glassCard(cornerRadius: 12)
         .opacity(animateIn ? 1 : 0)
         .offset(y: animateIn ? 0 : 10)
         .onAppear {

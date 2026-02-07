@@ -127,6 +127,18 @@ enum AppColors {
     }
 }
 
+// MARK: - Glass Card Modifier
+
+extension View {
+    /// iOS 26 Liquid Glass 卡片
+    func glassCard(cornerRadius: CGFloat = 12) -> some View {
+        self.glassEffect(
+            .clear,
+            in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+        )
+    }
+}
+
 // MARK: - Color Hex Extension
 
 extension Color {
