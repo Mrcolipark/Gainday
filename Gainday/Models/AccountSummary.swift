@@ -28,12 +28,24 @@ struct AccountSummary: Identifiable {
         }
     }
 
-    /// 已使用的生涯额度（所有买入总额 - 已卖出的部分可回收）
+    /// 已使用的生涯额度
+    /// NISA 规则：卖出后，簿価（取得価額）在翌年复活
+    /// 当年卖出的部分仍算已使用；前年以前卖出的已复活
     var usedLifetimeLimit: Double {
-        holdings.reduce(0) { total, holding in
-            // 生涯额度按当前持仓市值计算（卖出后额度可回收）
-            total + holding.totalCost
+        let currentYear = Calendar.current.component(.year, from: Date())
+        // 所有买入总额
+        let totalBought = holdings.flatMap(\.transactions).reduce(0.0) { total, tx in
+            guard TransactionType(rawValue: tx.type) == .buy else { return total }
+            return total + tx.quantity * tx.price
         }
+        // 前年以前卖出的总额（已复活的额度）
+        let recoveredFromPriorYears = holdings.flatMap(\.transactions).reduce(0.0) { total, tx in
+            let txYear = Calendar.current.component(.year, from: tx.date)
+            guard TransactionType(rawValue: tx.type) == .sell,
+                  txYear < currentYear else { return total }
+            return total + tx.quantity * tx.price
+        }
+        return max(0, totalBought - recoveredFromPriorYears)
     }
 
     /// 年度剩余额度
@@ -86,9 +98,9 @@ struct NISAQuotaCalculator {
         let tsumitateAnnualUsed = calculateAnnualUsed(holdings: tsumitateHoldings, year: currentYear)
         let growthAnnualUsed = calculateAnnualUsed(holdings: growthHoldings, year: currentYear)
 
-        // 生涯使用额度（按持仓市值，卖出后可回收）
-        let tsumitateLifetimeUsed = tsumitateHoldings.reduce(0) { $0 + $1.totalCost }
-        let growthLifetimeUsed = growthHoldings.reduce(0) { $0 + $1.totalCost }
+        // 生涯使用额度（买入总额 - 前年以前卖出的复活额度）
+        let tsumitateLifetimeUsed = calculateLifetimeUsed(holdings: tsumitateHoldings, currentYear: currentYear)
+        let growthLifetimeUsed = calculateLifetimeUsed(holdings: growthHoldings, currentYear: currentYear)
 
         return NISAOverallQuota(
             tsumitateAnnualUsed: tsumitateAnnualUsed,
@@ -106,6 +118,22 @@ struct NISAQuotaCalculator {
                   TransactionType(rawValue: tx.type) == .buy else { return total }
             return total + tx.quantity * tx.price
         }
+    }
+
+    /// 生涯使用额度 = 全買入总額 - 前年以前卖出的復活額
+    private static func calculateLifetimeUsed(holdings: [Holding], currentYear: Int) -> Double {
+        let allTx = holdings.flatMap(\.transactions)
+        let totalBought = allTx.reduce(0.0) { total, tx in
+            guard TransactionType(rawValue: tx.type) == .buy else { return total }
+            return total + tx.quantity * tx.price
+        }
+        let recoveredFromPriorYears = allTx.reduce(0.0) { total, tx in
+            let txYear = Calendar.current.component(.year, from: tx.date)
+            guard TransactionType(rawValue: tx.type) == .sell,
+                  txYear < currentYear else { return total }
+            return total + tx.quantity * tx.price
+        }
+        return max(0, totalBought - recoveredFromPriorYears)
     }
 }
 

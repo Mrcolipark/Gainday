@@ -189,7 +189,7 @@ enum AccountType: String, Codable, CaseIterable, Identifiable {
         case .nisa_tsumitate:
             return [.JP_FUND]  // つみたて枠只能买日本投信（対象商品）
         case .nisa_growth:
-            return Market.allCases  // 成長枠可以买所有市场
+            return [.JP, .JP_FUND, .US, .CN, .HK]  // 成長枠：日本株式・投信・外国株式（大宗商品/加密货币除外）
         }
     }
 

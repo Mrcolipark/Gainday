@@ -37,11 +37,10 @@ struct NISAOverviewView: View {
                     // 年度使用情况
                     annualQuotaSection
 
-                    // NISA 规则说明
-                    nisaRulesSection
-
-                    // 空状态
-                    if nisaPortfolios.isEmpty {
+                    // NISA 持仓一览
+                    if !nisaPortfolios.isEmpty {
+                        nisaHoldingsSection
+                    } else {
                         emptyStateView
                     }
                 }
@@ -187,63 +186,33 @@ struct NISAOverviewView: View {
         )
     }
 
-    // MARK: - NISA 规则说明
+    // MARK: - NISA 持仓一览
 
-    private var nisaRulesSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(spacing: 6) {
-                Image(systemName: "info.circle.fill")
-                    .font(.system(size: 14))
-                    .foregroundStyle(AppColors.textSecondary)
+    private var nisaHoldingsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("NISA 持仓".localized)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(AppColors.textPrimary)
 
-                Text("NISA 制度说明".localized)
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(AppColors.textPrimary)
-            }
-
-            VStack(alignment: .leading, spacing: 12) {
-                ruleRow(
-                    icon: "leaf.fill",
+            // つみたて枠持仓
+            let tsumitateHoldings = tsumitatePortfolios.flatMap(\.holdings)
+            if !tsumitateHoldings.isEmpty {
+                holdingGroup(
+                    title: "つみたて投資枠".localized,
                     color: AccountType.nisa_tsumitate.color,
-                    title: "つみたて投資枠",
-                    description: "年間120万円・只能購入対象投資信託".localized
-                )
-
-                Divider()
-                    .background(AppColors.dividerColor)
-
-                ruleRow(
-                    icon: "chart.line.uptrend.xyaxis",
-                    color: AccountType.nisa_growth.color,
-                    title: "成長投資枠",
-                    description: "年間240万円・日本股票和投資信託".localized
-                )
-
-                Divider()
-                    .background(AppColors.dividerColor)
-
-                ruleRow(
-                    icon: "infinity",
-                    color: .purple,
-                    title: "生涯非課税枠",
-                    description: "合計1,800万円（うち成長枠1,200万円まで）".localized
-                )
-
-                Divider()
-                    .background(AppColors.dividerColor)
-
-                ruleRow(
-                    icon: "arrow.triangle.2.circlepath",
-                    color: .orange,
-                    title: "枠の再利用",
-                    description: "売却した場合、翌年に枠が復活".localized
+                    holdings: tsumitateHoldings
                 )
             }
-            .padding(16)
-            .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(AppColors.elevatedSurface)
-            )
+
+            // 成長枠持仓
+            let growthHoldings = growthPortfolios.flatMap(\.holdings)
+            if !growthHoldings.isEmpty {
+                holdingGroup(
+                    title: "成長投資枠".localized,
+                    color: AccountType.nisa_growth.color,
+                    holdings: growthHoldings
+                )
+            }
         }
         .padding(16)
         .background(
@@ -252,25 +221,70 @@ struct NISAOverviewView: View {
         )
     }
 
-    private func ruleRow(icon: String, color: Color, title: String, description: String) -> some View {
-        HStack(spacing: 12) {
-            Image(systemName: icon)
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(color)
-                .frame(width: 24)
+    private func holdingGroup(title: String, color: Color, holdings: [Holding]) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(color)
+                    .frame(width: 8, height: 8)
 
-            VStack(alignment: .leading, spacing: 2) {
                 Text(title)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(AppColors.textSecondary)
+
+                Spacer()
+
+                Text("\(holdings.count)" + "只".localized)
+                    .font(.system(size: 12))
+                    .foregroundStyle(AppColors.textTertiary)
+            }
+
+            VStack(spacing: 0) {
+                ForEach(holdings, id: \.id) { holding in
+                    holdingRow(holding)
+
+                    if holding.id != holdings.last?.id {
+                        Divider()
+                            .background(AppColors.dividerColor)
+                            .padding(.leading, 12)
+                    }
+                }
+            }
+            .padding(12)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(AppColors.elevatedSurface)
+            )
+        }
+    }
+
+    private func holdingRow(_ holding: Holding) -> some View {
+        HStack(spacing: 10) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(holding.name.isEmpty ? holding.symbol : holding.name)
                     .font(.system(size: 14, weight: .medium))
                     .foregroundStyle(AppColors.textPrimary)
+                    .lineLimit(1)
 
-                Text(description)
-                    .font(.system(size: 12))
-                    .foregroundStyle(AppColors.textSecondary)
+                Text(holding.symbol)
+                    .font(.system(size: 11))
+                    .foregroundStyle(AppColors.textTertiary)
             }
 
             Spacer()
+
+            VStack(alignment: .trailing, spacing: 2) {
+                Text(holding.totalCost.compactCurrencyFormatted(code: holding.currency))
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(AppColors.textPrimary)
+                    .monospacedDigit()
+
+                Text("\(holding.totalQuantity.formattedQuantity)" + "股".localized)
+                    .font(.system(size: 11))
+                    .foregroundStyle(AppColors.textTertiary)
+            }
         }
+        .padding(.vertical, 6)
     }
 
     // MARK: - 空状态

@@ -165,18 +165,18 @@ struct NISACircularProgress: View {
             Circle()
                 .stroke(AppColors.elevatedSurface, lineWidth: lineWidth)
 
-            // つみたて枠进度（内环）
+            // つみたて枠进度（1/3 of ring, proportional to 120万/360万）
             Circle()
-                .trim(from: 0, to: quota.tsumitateAnnualRatio * 0.5)
+                .trim(from: 0, to: quota.tsumitateAnnualRatio / 3.0)
                 .stroke(
                     AccountType.nisa_tsumitate.color,
                     style: StrokeStyle(lineWidth: lineWidth, lineCap: .round)
                 )
                 .rotationEffect(.degrees(-90))
 
-            // 成長枠进度（外环的另一半）
+            // 成長枠进度（2/3 of ring, proportional to 240万/360万）
             Circle()
-                .trim(from: 0.5, to: 0.5 + quota.growthAnnualRatio * 0.5)
+                .trim(from: 1.0 / 3.0, to: 1.0 / 3.0 + quota.growthAnnualRatio * 2.0 / 3.0)
                 .stroke(
                     AccountType.nisa_growth.color,
                     style: StrokeStyle(lineWidth: lineWidth, lineCap: .round)
