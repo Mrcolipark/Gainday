@@ -156,7 +156,7 @@ struct WatchlistLargeView: View {
             }
         }
         .padding(12)
-        .containerBackground(.fill.tertiary, for: .widget)
+        .containerBackground(for: .widget) { WidgetTheme.widgetBackground }
     }
 }
 
@@ -274,7 +274,7 @@ struct WatchlistMediumView: View {
             }
         }
         .padding(12)
-        .containerBackground(.fill.tertiary, for: .widget)
+        .containerBackground(for: .widget) { WidgetTheme.widgetBackground }
     }
 }
 
@@ -292,7 +292,7 @@ struct WatchlistEmptyView: View {
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .containerBackground(.fill.tertiary, for: .widget)
+        .containerBackground(for: .widget) { WidgetTheme.widgetBackground }
     }
 }
 
@@ -324,6 +324,7 @@ struct WatchlistWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: WatchlistProvider()) { entry in
             WatchlistWidgetEntryView(entry: entry)
+                .widgetTheme()
         }
         .configurationDisplayName("持仓列表".widgetLocalized)
         .description("实时查看持仓涨跌".widgetLocalized)
@@ -335,14 +336,14 @@ struct WatchlistWidget: Widget {
 
 #Preview("持仓 - 浅色") {
     WatchlistWidgetEntryView(entry: WatchlistEntry(date: Date(), stocks: WatchlistStock.placeholders))
-        .containerBackground(.fill.tertiary, for: .widget)
+        .containerBackground(for: .widget) { WidgetTheme.widgetBackground }
         .previewContext(WidgetPreviewContext(family: .systemLarge))
         .environment(\.colorScheme, .light)
 }
 
 #Preview("持仓 - 深色") {
     WatchlistWidgetEntryView(entry: WatchlistEntry(date: Date(), stocks: WatchlistStock.placeholders))
-        .containerBackground(.fill.tertiary, for: .widget)
+        .containerBackground(for: .widget) { WidgetTheme.widgetBackground }
         .previewContext(WidgetPreviewContext(family: .systemLarge))
         .environment(\.colorScheme, .dark)
 }

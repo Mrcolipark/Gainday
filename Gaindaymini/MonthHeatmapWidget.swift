@@ -158,7 +158,7 @@ struct DayPnLData: Identifiable {
     /// 热力图颜色
     var heatmapColor: Color {
         guard hasData else {
-            return Color.white.opacity(0.08)
+            return WidgetColors.emptyCell
         }
 
         // 根据盈亏计算颜色强度（假设 ±2% 为满强度）
@@ -255,7 +255,7 @@ struct MonthHeatmapWidgetView: View {
             }
         }
         .padding(12)
-        .containerBackground(.fill.tertiary, for: .widget)
+        .containerBackground(for: .widget) { WidgetTheme.widgetBackground }
     }
 
     // MARK: - Header
@@ -317,7 +317,7 @@ struct MonthHeatmapWidgetView: View {
         return ZStack {
             // 热力图颜色方块
             RoundedRectangle(cornerRadius: 3, style: .continuous)
-                .fill(data.hasData ? pnlColor(percent: data.pnLPercent) : Color.white.opacity(0.08))
+                .fill(data.hasData ? pnlColor(percent: data.pnLPercent) : WidgetColors.emptyCell)
 
             // 盈亏数字（有数据时显示）
             if data.hasData {
@@ -326,14 +326,14 @@ struct MonthHeatmapWidgetView: View {
                     .foregroundStyle(.white.opacity(abs(data.pnLPercent) > 0.5 ? 1.0 : 0.9))
                     .lineLimit(1)
                     .minimumScaleFactor(0.6)
-                    .shadow(color: .black.opacity(0.3), radius: 1, x: 0, y: 0.5)
+                    .shadow(color: WidgetColors.cellTextShadow, radius: 1, x: 0, y: 0.5)
             }
 
             // 今日边框
             if isToday {
                 RoundedRectangle(cornerRadius: 3, style: .continuous)
-                    .strokeBorder(.white, lineWidth: 2)
-                    .shadow(color: .black.opacity(0.2), radius: 2)
+                    .strokeBorder(WidgetColors.todayBorder, lineWidth: 2)
+                    .shadow(color: WidgetColors.cellTextShadow, radius: 2)
             }
         }
         .frame(width: size, height: size)
@@ -442,6 +442,7 @@ struct MonthHeatmapWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: MonthHeatmapProvider()) { entry in
             MonthHeatmapWidgetView(entry: entry)
+                .widgetTheme()
         }
         .configurationDisplayName("月度热力图".widgetLocalized)
         .description("当月每日盈亏日历".widgetLocalized)
@@ -453,14 +454,14 @@ struct MonthHeatmapWidget: Widget {
 
 #Preview("热力图 - 浅色") {
     MonthHeatmapWidgetView(entry: MonthHeatmapEntry(date: Date(), days: DayPnLData.placeholders, monthTotal: 125000, year: 2026, month: 2))
-        .containerBackground(.fill.tertiary, for: .widget)
+        .containerBackground(for: .widget) { WidgetTheme.widgetBackground }
         .previewContext(WidgetPreviewContext(family: .systemLarge))
         .environment(\.colorScheme, .light)
 }
 
 #Preview("热力图 - 深色") {
     MonthHeatmapWidgetView(entry: MonthHeatmapEntry(date: Date(), days: DayPnLData.placeholders, monthTotal: 125000, year: 2026, month: 2))
-        .containerBackground(.fill.tertiary, for: .widget)
+        .containerBackground(for: .widget) { WidgetTheme.widgetBackground }
         .previewContext(WidgetPreviewContext(family: .systemLarge))
         .environment(\.colorScheme, .dark)
 }

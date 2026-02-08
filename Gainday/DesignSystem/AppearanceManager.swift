@@ -1,14 +1,21 @@
 import SwiftUI
+import WidgetKit
 
 /// 外观管理器 - 管理应用主题切换
 @Observable
 final class AppearanceManager {
     static let shared = AppearanceManager()
 
+    private let sharedDefaults = UserDefaults(suiteName: "group.com.gainday.shared")
+
     var appearance: String {
         didSet {
             UserDefaults.standard.set(appearance, forKey: "appearance")
+            // 同步到 Widget 共享 UserDefaults
+            sharedDefaults?.set(appearance, forKey: "appearance")
             applyAppearance()
+            // 通知 Widget 刷新
+            WidgetCenter.shared.reloadAllTimelines()
         }
     }
 
@@ -22,6 +29,8 @@ final class AppearanceManager {
 
     private init() {
         self.appearance = UserDefaults.standard.string(forKey: "appearance") ?? "system"
+        // 初始同步到 Widget
+        sharedDefaults?.set(self.appearance, forKey: "appearance")
     }
 
     func applyAppearance() {

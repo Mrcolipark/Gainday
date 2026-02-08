@@ -1,6 +1,9 @@
 import Foundation
 import WidgetKit
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#endif
 
 // MARK: - Shared Constants
 
@@ -170,6 +173,75 @@ enum WidgetColors {
     // iOS System Colors - Apple/Yahoo Finance Style
     static let profit = Color(hex: 0x34C759)  // iOS 系统绿
     static let loss = Color(hex: 0xFF3B30)    // iOS 系统红
+
+    /// 自适应空单元格颜色
+    static var emptyCell: Color {
+        WidgetTheme.color(light: Color.black.opacity(0.06), dark: Color.white.opacity(0.08))
+    }
+
+    /// 自适应今日边框颜色
+    static var todayBorder: Color {
+        WidgetTheme.color(light: Color.black.opacity(0.8), dark: Color.white)
+    }
+
+    /// 热力图文字阴影
+    static var cellTextShadow: Color {
+        WidgetTheme.color(light: Color.white.opacity(0.4), dark: Color.black.opacity(0.3))
+    }
+}
+
+// MARK: - Widget Theme
+
+enum WidgetTheme {
+    /// 判断当前是否深色模式（优先读 App 偏好，否则跟随系统）
+    static var isDark: Bool {
+        if let defaults = UserDefaults(suiteName: WidgetConstants.appGroupIdentifier),
+           let appearance = defaults.string(forKey: "appearance") {
+            switch appearance {
+            case "light": return false
+            case "dark": return true
+            default: break  // "system" — 跟随系统
+            }
+        }
+        // 跟随系统
+        #if canImport(UIKit)
+        return UIScreen.main.traitCollection.userInterfaceStyle == .dark
+        #else
+        return true
+        #endif
+    }
+
+    /// 根据主题选择颜色
+    static func color(light: Color, dark: Color) -> Color {
+        isDark ? dark : light
+    }
+
+    /// Widget 背景色
+    static var widgetBackground: Color {
+        isDark ? Color(hex: 0x1C1C1E) : Color(hex: 0xF2F2F7)
+    }
+
+    /// 主要文字色
+    static var textPrimary: Color {
+        isDark ? .white : .black
+    }
+
+    /// 次要文字色
+    static var textSecondary: Color {
+        isDark ? Color(hex: 0x8E8E93) : Color(hex: 0x6C6C70)
+    }
+
+    /// 第三级文字色
+    static var textTertiary: Color {
+        isDark ? Color(hex: 0x636366) : Color(hex: 0x8E8E93)
+    }
+}
+
+extension View {
+    /// 应用主 App 的主题偏好到 Widget
+    func widgetTheme() -> some View {
+        self.environment(\.colorScheme, WidgetTheme.isDark ? .dark : .light)
+    }
 }
 
 // MARK: - Data Models

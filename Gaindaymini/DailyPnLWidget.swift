@@ -111,7 +111,7 @@ struct DailyPnLSmallView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)
-        .containerBackground(.fill.tertiary, for: .widget)
+        .containerBackground(for: .widget) { WidgetTheme.widgetBackground }
     }
 }
 
@@ -199,7 +199,7 @@ struct DailyPnLMediumView: View {
             }
         }
         .padding(14)
-        .containerBackground(.fill.tertiary, for: .widget)
+        .containerBackground(for: .widget) { WidgetTheme.widgetBackground }
     }
 }
 
@@ -217,7 +217,7 @@ struct DailyPnLEmptyView: View {
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .containerBackground(.fill.tertiary, for: .widget)
+        .containerBackground(for: .widget) { WidgetTheme.widgetBackground }
     }
 }
 
@@ -249,6 +249,7 @@ struct DailyPnLWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: DailyPnLProvider()) { entry in
             DailyPnLWidgetView(entry: entry)
+                .widgetTheme()
         }
         .configurationDisplayName("今日盈亏Widget".widgetLocalized)
         .description("显示今日盈亏和总资产".widgetLocalized)
@@ -260,26 +261,26 @@ struct DailyPnLWidget: Widget {
 
 #Preview("Small - 浅色") {
     DailyPnLSmallView(entry: DailyPnLEntry(date: Date(), data: .placeholder))
-        .containerBackground(.fill.tertiary, for: .widget)
+        .containerBackground(for: .widget) { WidgetTheme.widgetBackground }
         .previewContext(WidgetPreviewContext(family: .systemSmall))
         .environment(\.colorScheme, .light)
 }
 
 #Preview("Small - 深色") {
     DailyPnLSmallView(entry: DailyPnLEntry(date: Date(), data: .placeholder))
-        .containerBackground(.fill.tertiary, for: .widget)
+        .containerBackground(for: .widget) { WidgetTheme.widgetBackground }
         .previewContext(WidgetPreviewContext(family: .systemSmall))
         .environment(\.colorScheme, .dark)
 }
 
 #Preview("Medium") {
     DailyPnLMediumView(entry: DailyPnLEntry(date: Date(), data: .placeholder))
-        .containerBackground(.fill.tertiary, for: .widget)
+        .containerBackground(for: .widget) { WidgetTheme.widgetBackground }
         .previewContext(WidgetPreviewContext(family: .systemMedium))
 }
 
 #Preview("Empty") {
     DailyPnLEmptyView()
-        .containerBackground(.fill.tertiary, for: .widget)
+        .containerBackground(for: .widget) { WidgetTheme.widgetBackground }
         .previewContext(WidgetPreviewContext(family: .systemSmall))
 }
